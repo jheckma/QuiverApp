@@ -60,7 +60,7 @@ The cyclic action must be **faithful** (`gcd(a,b,c,n)=1`) and Calabi–Yau
 - one gauge node per irrep `R_i` of Γ, with gauge group `U(N·dim R_i)`;
 - bifundamental chirals: the number of arrows `i→j` is the multiplicity
   `a_ij = ⟨χ_Q·χ_i, χ_j⟩`, where `Q` is the defining 3-dim rep;
-- the cubic Leigh–Strassler superpotential descends from
+- the cubic superpotential descends from
   `W_{N=4}=Tr Φ¹[Φ²,Φ³]`; its terms are the Γ-invariant closed 3-loops,
   counted by `Tr(A³)`.
 
@@ -71,7 +71,7 @@ The irreducible characters are obtained numerically from the class algebra
 Wecht the conformal manifold is the space of exactly marginal couplings modulo
 the complexified global symmetry. These marginal couplings are **field-theory
 data, not invariants of the orbifold geometry**: the holomorphic gauge couplings
-(one `τ` per quiver node) and the cubic Leigh–Strassler superpotential couplings
+(one `τ` per quiver node) and the cubic superpotential couplings
 (one per Γ-invariant closed 3-loop), with the broken global symmetry generated
 by the U(1)'s acting on the bifundamentals. Performing the GKSTW count
 `#couplings − dim_C G_F` for these theories collapses to a closed form that can
