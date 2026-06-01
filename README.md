@@ -68,18 +68,23 @@ The irreducible characters are obtained numerically from the class algebra
 (Burnside / Dixon), so the quiver is built for any finite matrix group.
 
 **Step 3 — the conformal manifold.** By Green–Komargodski–Seiberg–Tachikawa–
-Wecht the conformal manifold is the space of marginal couplings modulo the
-complexified global symmetry. For these orbifold theories the count collapses
-to a closed form controlled by how the three holomorphic coordinates of C³ are
-left fixed:
+Wecht the conformal manifold is the space of exactly marginal couplings modulo
+the complexified global symmetry. These marginal couplings are **field-theory
+data, not invariants of the orbifold geometry**: the holomorphic gauge couplings
+(one `τ` per quiver node) and the cubic Leigh–Strassler superpotential couplings
+(one per Γ-invariant closed 3-loop), with the broken global symmetry generated
+by the U(1)'s acting on the bifundamentals. Performing the GKSTW count
+`#couplings − dim_C G_F` for these theories collapses to a closed form that can
+be written as a character sum over Γ:
 
 ```
 fix_Q(g) = number of unit eigenvalues of g on C³
 dim_C M_conf = ( Σ_{g∈Γ} fix_Q(g) ) − 1            (faithful Γ, connected quiver)
 ```
 
-By Burnside this equals the sum, over the holomorphic directions, of the number
-of group elements fixing that direction. For a diagonal cyclic action it is
+The `fix_Q` sum is a convenient bookkeeping of that field-theory count — *not* a
+count of fixed loci or geometric invariants of C³/Γ. For a diagonal cyclic
+action it evaluates to
 
 ```
 dim_C M_conf = gcd(n,a) + gcd(n,b) + gcd(n,c) − 1.
