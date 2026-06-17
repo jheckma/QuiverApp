@@ -225,14 +225,26 @@ def library() -> dict[str, callable]:
     }
 
 
+def _full_library() -> dict:
+    """SU(3) core library + the finite-U(2)-subgroup library (lazy import to
+    avoid a circular dependency, since u2groups imports from this module)."""
+    lib = dict(library())
+    try:
+        from .u2groups import u2_library
+        lib.update(u2_library())
+    except Exception:
+        pass
+    return lib
+
+
 def list_groups() -> list[str]:
     """Names available via make_group / the interactive selector."""
-    return list(library().keys())
+    return list(_full_library().keys())
 
 
 def make_group(name: str) -> MatrixGroup:
     """Build a group from the library by name."""
-    lib = library()
+    lib = _full_library()
     if name not in lib:
         raise KeyError(f"unknown group '{name}'. Available: {list_groups()}")
     return lib[name]()

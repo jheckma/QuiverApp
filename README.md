@@ -36,6 +36,28 @@ to enter your own weights. The page shows the group data, the McKay quiver
 manifold dimension. API: `GET /api/groups`, `GET /api/compute?name=...`
 (or `name=__cyclic__&n=&a=&b=&c=`).
 
+## Database / sweep
+
+`conformalmanifold.database` runs the full pipeline over a set of groups and
+records **all** computed data (no filtering — that is left to downstream sweep
+code) as one row per group in a SQLite table `quivers`:
+
+```
+python -m conformalmanifold.database quivers.db        # build the default sweep
+```
+
+```python
+from conformalmanifold.database import build_database, default_entries, record_for
+build_database(default_entries(), "quivers.db")        # SU(3) core + U(2) subgroups
+```
+
+Columns: `name`, `family`, `description`, `grp_order`, `is_abelian`,
+`third_coord_fixed` (genuine SU(2) embedding vs U(2)), `num_nodes`,
+`irrep_dims`, `num_arrows`, `connected`, `num_cubic_terms`, `fixed_sum` (`S`),
+`per_direction`, `dim_conf`, `note`, `generators` (3×3 complex, JSON). The build
+is idempotent (upsert on `name`), so a sweep can be extended and rebuilt without
+duplicating rows.
+
 ## The pipeline
 
 **Step 1 — the group.** Γ is realised as an explicit 3×3 matrix group inside
@@ -55,6 +77,24 @@ subgroups:
 You can also pass any generators of your own (`groups.closure([...])`).
 The cyclic action must be **faithful** (`gcd(a,b,c,n)=1`) and Calabi–Yau
 (`a+b+c≡0 mod n`); both are checked.
+
+**Finite U(2) subgroups of SU(3)** (`conformalmanifold.u2groups`). Every finite
+subgroup of U(2) embeds in SU(3) by `g ↦ diag(g, det(g)⁻¹)` (unitary, det 1,
+injective ⇒ *faithful*), a reducible `2+1` action on `C³ = C² ⊕ C`. Built-in:
+
+| name | group | order |
+|------|-------|-------|
+| `BD_m` | binary dihedral / dicyclic (`D_{m+2}`) | `4m` |
+| `2T` | binary tetrahedral (`E6`) | 24 |
+| `2O` | binary octahedral (`E7`) | 48 |
+| `2I` | binary icosahedral (`E8`) | 120 |
+| `H.Z_k` | `H` × central `U(1)` phase `e^{2πi/k}` (genuine U(2)) | varies |
+
+A pure-SU(2) embedding (`det = 1`) leaves the third coordinate fixed
+(`C²/Γ × C`) and gives `dim_C M_conf = |Γ| + 1`; a central phase extension
+(`H.Z_k`, `k` odd) makes the action genuinely 3-dimensional. Use
+`binary_dihedral(m, phase=k)` / `binary_polyhedral('2I', phase=k)` for arbitrary
+members, or `embed_u2(g)` to drop in your own U(2) generators.
 
 **Step 2 — the McKay quiver.**
 - one gauge node per irrep `R_i` of Γ, with gauge group `U(N·dim R_i)`;
