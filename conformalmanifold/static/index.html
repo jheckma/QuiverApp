@@ -84,15 +84,49 @@
   .note{color:var(--warn);font-size:12.5px;margin-top:10px}
   .foot{color:var(--mut);font-size:12px;margin-top:22px;text-align:center}
   .spin{color:var(--mut);padding:30px;text-align:center}
+  /* mode tabs */
+  .tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:6px 0 0}
+  .tab{background:none;color:var(--mut);border:0;border-bottom:2px solid transparent;
+       border-radius:0;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer}
+  .tab:hover{color:var(--ink)}
+  .tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+  /* toric web builder */
+  .builder{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:860px){.builder{grid-template-columns:1fr}}
+  svg.grid{background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+           cursor:crosshair;touch-action:none}
+  .gridpt{fill:#3a4252;cursor:pointer}
+  .gridpt:hover{fill:var(--accent)}
+  .gridpt.sel{fill:var(--accent2)}
+  .gridline{stroke:#222a37;stroke-width:1}
+  .gridaxis{stroke:#39435a;stroke-width:1.2}
+  .toricfill{fill:rgba(122,162,255,.13);stroke:var(--accent);stroke-width:2;
+             stroke-linejoin:round}
+  .leg{stroke:var(--accent2);stroke-width:2}
+  .legdot{fill:var(--accent2)}
+  .leglabel{fill:#bfe9d4;font-size:10px;font-family:ui-monospace,Consolas,monospace}
+  .preset{background:var(--panel2);color:var(--accent);border:1px solid var(--line);
+          padding:5px 11px;font-size:12.5px;font-weight:500}
+  .preset:hover{border-color:var(--accent)}
+  .legtag{display:inline-block;background:#10261c;border:1px solid #2f7d57;color:#56d39b;
+          border-radius:7px;padding:2px 8px;margin:2px 4px 0 0;font-size:12.5px;
+          font-family:ui-monospace,Consolas,monospace}
 </style>
 </head>
 <body>
 <header>
-  <h1>Conformal manifolds of <span class="cy">C&sup3;/&Gamma;</span> orbifold quiver gauge theories</h1>
-  <div class="sub">N D3-branes probing a Calabi&ndash;Yau singularity &mdash;
-     pick a finite group &Gamma; &lt; SU(3) and read off dim<sub>&#8450;</sub> of the conformal manifold.</div>
+  <h1>Conformal manifolds of <span class="cy">quiver gauge theories</span></h1>
+  <div class="sub">N D3-branes probing a Calabi&ndash;Yau singularity &mdash; read off
+     dim<sub>&#8450;</sub> of the conformal manifold from the orbifold group, or from a
+     toric (p,q) web you build.</div>
 </header>
 <main>
+  <div class="tabs">
+    <button class="tab on" id="tab-orb">Orbifold &nbsp;C&sup3;/&Gamma;</button>
+    <button class="tab" id="tab-tor">Toric (p,q)-web builder</button>
+  </div>
+
+  <div id="view-orbifold">
   <div class="controls">
     <div>
       <label for="group">Preset group &Gamma;</label>
@@ -177,6 +211,74 @@
 
   <div class="foot">dim<sub>&#8450;</sub> M = (&sum;<sub>g&isin;&Gamma;</sub> fix<sub>Q</sub>(g)) &minus; 1 &nbsp;&middot;&nbsp;
      cyclic: gcd(n,a)+gcd(n,b)+gcd(n,c)&minus;1 &nbsp;&middot;&nbsp; independent of N</div>
+  </div><!-- /view-orbifold -->
+
+  <div id="view-toric" class="hide">
+    <div class="sub" style="margin:14px 0 10px">
+      Click lattice points to lay down a <b>toric diagram</b> (the dot diagram).
+      Its dual <b>(p,q) 5-brane web</b> &mdash; the external legs, one per boundary
+      edge &mdash; is drawn in green. Then <b>build the quiver</b>: the number of
+      gauge groups is 2&times;area, and dim<sub>&#8450;</sub> M = B &minus; 1
+      (B = boundary lattice points = number of external legs).
+    </div>
+    <div class="exrow" style="margin:0 0 12px">
+      presets:
+      <button type="button" class="preset" data-pts="0,0;1,0;0,1">C&sup3;</button>
+      <button type="button" class="preset" data-pts="0,0;1,0;1,1;0,1">conifold</button>
+      <button type="button" class="preset" data-pts="1,0;0,1;-1,-1">dP0 = P&sup2;</button>
+      <button type="button" class="preset" data-pts="1,0;0,1;-1,-1;0,-1">dP1 = Y&sup2;&sup1;</button>
+      <button type="button" class="preset" data-pts="1,0;0,1;-1,0;-1,-1;0,-1">dP2</button>
+      <button type="button" class="preset" data-pts="1,0;0,1;-1,1;-1,0;0,-1;1,-1">dP3</button>
+      <button type="button" class="preset" data-pts="-1,0;1,0;0,1;0,-1">F0 = P&sup1;&times;P&sup1;</button>
+      <button type="button" class="preset" data-pts="0,0;2,0;0,2">Z&#8322;&times;Z&#8322;</button>
+      <button type="button" class="preset" data-pts="">clear</button>
+    </div>
+
+    <div class="builder">
+      <div class="card">
+        <h2>Toric diagram &nbsp;&amp;&nbsp; dual (p,q) web</h2>
+        <svg id="grid" class="grid" viewBox="0 0 420 420"></svg>
+        <div class="help" style="margin-top:10px">
+          green legs are the external (p,q) 5-branes (&perp; to each edge);
+          their charges sum to zero. Click a selected point to remove it.
+        </div>
+      </div>
+      <div class="card">
+        <h2>Result</h2>
+        <div id="t-empty" class="spin">lay down at least 3 non-collinear points&hellip;</div>
+        <div id="t-body" class="hide">
+          <div class="result" style="margin-top:0">
+            <div class="bignum" id="t-dim">&mdash;</div>
+            <div>
+              <div style="font-size:15px;font-weight:600">dim<sub>&#8450;</sub> of the conformal manifold</div>
+              <div class="formula" id="t-formula"></div>
+            </div>
+          </div>
+          <div class="kv" style="margin-top:12px"><span class="k">identified geometry</span><span class="v" id="t-geom"></span></div>
+          <div class="kv"><span class="k">gauge groups (2&times;area)</span><span class="v" id="t-gauge"></span></div>
+          <div class="kv"><span class="k">boundary pts B / interior I</span><span class="v" id="t-BI"></span></div>
+          <div class="kv"><span class="k">external (p,q) legs</span><span class="v" id="t-nlegs"></span></div>
+          <div style="margin-top:8px" id="t-legtags"></div>
+          <div class="note hide" id="t-note"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="t-quivercard" class="card hide" style="margin-top:18px">
+      <h2>Quiver gauge theory &nbsp;<span id="t-qbadge" class="badge"></span></h2>
+      <div class="kv"><span class="k">gauge nodes</span><span class="v" id="t-qnodes"></span></div>
+      <div class="kv"><span class="k">bifundamentals</span><span class="v" id="t-qarrows"></span></div>
+      <div class="kv"><span class="k">superpotential terms</span><span class="v" id="t-qW"></span></div>
+      <div class="kv"><span class="k">dim<sub>&#8450;</sub> via Leigh&ndash;Strassler count</span><span class="v" id="t-qls"></span></div>
+      <div class="builder" style="margin-top:8px">
+        <svg id="t-quiver" viewBox="0 0 420 360"></svg>
+        <div id="t-adjwrap" style="overflow:auto"></div>
+      </div>
+    </div>
+
+    <div class="foot">a toric diagram (lattice polygon) &harr; its (p,q) web &harr; a quiver gauge theory
+      &nbsp;&middot;&nbsp; dim<sub>&#8450;</sub> M = B &minus; 1 &nbsp;&middot;&nbsp; #gauge = 2&times;area</div>
+  </div><!-- /view-toric -->
 </main>
 
 <script>
@@ -214,7 +316,8 @@ function fmtC(z){
   return `${z.re.toFixed(2)}${z.im>=0?"+":""}${z.im.toFixed(2)}i`;
 }
 
-function drawQuiver(adj, dims){
+function drawQuiver(adj, dims, svgId){
+  svgId = svgId || "quiver";
   const n = adj.length;
   const W=420, H=360, cx=210, cy=180;
   const r = n>16 ? 8 : (n>10 ? 11 : 14);
@@ -261,12 +364,13 @@ function drawQuiver(adj, dims){
     s+=`<text x="${t.x.toFixed(1)}" y="${t.y.toFixed(1)}" fill="#9fb2e0" font-size="10.5"
          font-weight="600" text-anchor="middle" dominant-baseline="central">${t.m}</text>`;
 
-  const svg=$("quiver");
+  const svg=$(svgId);
   svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   svg.innerHTML = s;
 }
 
-function drawAdj(adj){
+function drawAdj(adj, wrapId){
+  wrapId = wrapId || "adjwrap";
   const n=adj.length;
   let h="<table class='adj'><tr><th></th>";
   for(let j=0;j<n;j++) h+=`<th>${j}</th>`;
@@ -276,7 +380,7 @@ function drawAdj(adj){
     for(let j=0;j<n;j++){ const v=adj[i][j]; h+=`<td class="${v?'nz':'z'}">${v}</td>`; }
     h+="</tr>";
   }
-  $("adjwrap").innerHTML = h+"</table>";
+  $(wrapId).innerHTML = h+"</table>";
 }
 
 async function compute(){
@@ -335,6 +439,140 @@ function render(d){
 
 $("go").addEventListener("click", compute);
 loadGroups().then(compute);
+
+/* ===================== Toric (p,q)-web builder ===================== */
+const T_RANGE = 5;                 // lattice [-5,5]^2
+const T_STEP = 420/(2*T_RANGE+2);  // px per lattice unit
+const T_CX = 210, T_CY = 210;
+const toricPts = new Set(["0,0","1,0","1,1","0,1"]);   // default: conifold
+let toricTimer = null;
+
+const sx = gx => T_CX + gx*T_STEP;
+const sy = gy => T_CY - gy*T_STEP;
+const gKey = (x,y) => `${x},${y}`;
+function igcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ [a,b]=[b,a%b]; } return a; }
+
+function jsHull(points){           // monotone chain -> CCW, no collinear
+  const pts = points.map(s=>s.split(",").map(Number)).sort((p,q)=>p[0]-q[0]||p[1]-q[1]);
+  if(pts.length<=2) return pts;
+  const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lower=[]; for(const p of pts){ while(lower.length>=2 && cross(lower[lower.length-2],lower[lower.length-1],p)<=0) lower.pop(); lower.push(p); }
+  const upper=[]; for(let i=pts.length-1;i>=0;i--){ const p=pts[i]; while(upper.length>=2 && cross(upper[upper.length-2],upper[upper.length-1],p)<=0) upper.pop(); upper.push(p); }
+  lower.pop(); upper.pop(); return lower.concat(upper);
+}
+function jsWeb(hull){              // external legs: outward normal per primitive segment
+  const legs=[]; const n=hull.length;
+  for(let i=0;i<n;i++){
+    const a=hull[i], b=hull[(i+1)%n];
+    const dx=b[0]-a[0], dy=b[1]-a[1], g=igcd(dx,dy)||1, ux=dx/g, uy=dy/g;
+    for(let t=0;t<g;t++) legs.push({pq:[uy,-ux], base:[a[0]+ux*t+ux/2, a[1]+uy*t+uy/2]});
+  }
+  return legs;
+}
+
+function renderGrid(){
+  let s = "";
+  // faint grid + axes
+  for(let g=-T_RANGE; g<=T_RANGE; g++){
+    s+=`<line class="${g===0?'gridaxis':'gridline'}" x1="${sx(-T_RANGE)}" y1="${sy(g)}" x2="${sx(T_RANGE)}" y2="${sy(g)}"/>`;
+    s+=`<line class="${g===0?'gridaxis':'gridline'}" x1="${sx(g)}" y1="${sy(-T_RANGE)}" x2="${sx(g)}" y2="${sy(T_RANGE)}"/>`;
+  }
+  // toric polygon + dual web (need >=3 hull corners)
+  const hull = jsHull([...toricPts]);
+  if(hull.length>=3){
+    s+=`<polygon class="toricfill" points="${hull.map(p=>`${sx(p[0])},${sy(p[1])}`).join(" ")}"/>`;
+    for(const leg of jsWeb(hull)){
+      const [bx,by]=leg.base, [p,q]=leg.pq, L=igcd(p,q)||1;
+      const dirx=p/L, diry=q/L, len=1.15;
+      const x1=sx(bx), y1=sy(by), x2=sx(bx+dirx*len), y2=sy(by+diry*len);
+      s+=`<line class="leg" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+      s+=`<circle class="legdot" cx="${x2}" cy="${y2}" r="2.6"/>`;
+      s+=`<text class="leglabel" x="${sx(bx+dirx*(len+0.5))}" y="${sy(by+diry*(len+0.5))}" text-anchor="middle" dominant-baseline="central">(${p},${q})</text>`;
+    }
+  }
+  // clickable lattice points
+  for(let gx=-T_RANGE; gx<=T_RANGE; gx++) for(let gy=-T_RANGE; gy<=T_RANGE; gy++){
+    const sel = toricPts.has(gKey(gx,gy));
+    s+=`<circle class="gridpt${sel?' sel':''}" data-gx="${gx}" data-gy="${gy}" cx="${sx(gx)}" cy="${sy(gy)}" r="${sel?5.5:3.2}"/>`;
+  }
+  $("grid").innerHTML = s;
+}
+
+async function buildToric(){
+  renderGrid();
+  const pts = [...toricPts];
+  if(jsHull(pts).length < 3){
+    $("t-empty").classList.remove("hide"); $("t-body").classList.add("hide");
+    $("t-quivercard").classList.add("hide");
+    return;
+  }
+  const ptsArg = pts.join(";");
+  try{
+    const r = await fetch("/api/toric_web?pts="+encodeURIComponent(ptsArg));
+    const d = await r.json();
+    if(d.error){ $("t-empty").textContent=d.error; $("t-empty").classList.remove("hide"); $("t-body").classList.add("hide"); $("t-quivercard").classList.add("hide"); return; }
+    renderToric(d);
+  }catch(e){
+    $("t-empty").textContent=String(e); $("t-empty").classList.remove("hide");
+  }
+}
+
+function renderToric(d){
+  $("t-empty").classList.add("hide"); $("t-body").classList.remove("hide");
+  const c=d.conformal, g=d.diagram, w=d.web, id=d.identified;
+  $("t-dim").textContent = c.dim_conf;
+  $("t-formula").innerHTML = `B &minus; 1 = ${g.boundary_points} &minus; 1 &nbsp;(independent of N)`;
+  $("t-geom").textContent = id.matched ? `${id.label}  —  ${id.description}` : id.family;
+  $("t-gauge").textContent = c.num_gauge_groups;
+  $("t-BI").textContent = `${g.boundary_points} / ${g.interior_points}`;
+  const cs = w.charge_sum;
+  $("t-nlegs").textContent = `${w.num_external_legs}  (Σ charge = (${cs[0]},${cs[1]}))`;
+  $("t-legtags").innerHTML = w.legs.map(l=>`<span class="legtag">(${l.pq[0]},${l.pq[1]})</span>`).join("");
+  const note = id.note || "";
+  if(note){ $("t-note").textContent=note; $("t-note").classList.remove("hide"); }
+  else $("t-note").classList.add("hide");
+
+  if(d.quiver){
+    const q=d.quiver;
+    $("t-quivercard").classList.remove("hide");
+    const badge=$("t-qbadge"); badge.className="badge chiral"; badge.textContent=id.label;
+    $("t-qnodes").textContent=q.num_nodes;
+    $("t-qarrows").textContent=q.num_arrows;
+    $("t-qW").textContent=q.num_w_terms;
+    $("t-qls").textContent=q.dim_conf_ls;
+    drawQuiver(q.adjacency, q.dims, "t-quiver");
+    drawAdj(q.adjacency, "t-adjwrap");
+  } else {
+    $("t-quivercard").classList.add("hide");
+  }
+}
+
+$("grid").addEventListener("click", e=>{
+  const t=e.target;
+  if(!t.classList || !t.classList.contains("gridpt")) return;
+  const k=gKey(t.dataset.gx, t.dataset.gy);
+  if(toricPts.has(k)) toricPts.delete(k); else toricPts.add(k);
+  buildToric();
+});
+document.querySelectorAll("button.preset").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    toricPts.clear();
+    for(const p of (b.dataset.pts||"").split(";")) if(p) toricPts.add(p.trim());
+    buildToric();
+  });
+});
+
+/* ---- tab switching ---- */
+function showTab(which){
+  const orb = which==="orb";
+  $("tab-orb").classList.toggle("on", orb);
+  $("tab-tor").classList.toggle("on", !orb);
+  $("view-orbifold").classList.toggle("hide", !orb);
+  $("view-toric").classList.toggle("hide", orb);
+  if(!orb) buildToric();
+}
+$("tab-orb").addEventListener("click", ()=>showTab("orb"));
+$("tab-tor").addEventListener("click", ()=>showTab("tor"));
 </script>
 </body>
 </html>

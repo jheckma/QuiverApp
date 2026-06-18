@@ -8,6 +8,7 @@ Endpoints
     GET /api/groups             {"groups": [...names...]}
     GET /api/compute?name=...   full pipeline summary as JSON
     GET /api/compute?name=__cyclic__&n=10&a=2&b=3&c=5
+    GET /api/toric_web?pts=x0,y0;x1,y1;...   toric diagram -> (p,q) web + quiver
 """
 
 from __future__ import annotations
@@ -23,6 +24,22 @@ from .groups import list_groups
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _INDEX = os.path.join(_HERE, "static", "index.html")
+
+
+def _parse_points(s: str):
+    """'x0,y0;x1,y1;...' -> [(x0,y0), (x1,y1), ...]  (integer lattice points)."""
+    pts = []
+    for chunk in s.split(";"):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        xy = chunk.split(",")
+        if len(xy) != 2:
+            raise ValueError(f"bad point {chunk!r}; expected 'x,y'")
+        pts.append((int(xy[0]), int(xy[1])))
+    if not pts:
+        raise ValueError("no toric-diagram points supplied")
+    return pts
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -66,6 +83,17 @@ class Handler(BaseHTTPRequestHandler):
                     self._json(api.summarize_freeform(q.get("expr", [""])[0]))
                 else:
                     self._json(api.summarize_named(name))
+            except (ValueError, KeyError) as exc:
+                self._json({"error": str(exc)}, code=400)
+            except Exception as exc:  # noqa: BLE001
+                self._json({"error": f"internal error: {exc}"}, code=500)
+            return
+
+        if path == "/api/toric_web":
+            q = parse_qs(parsed.query)
+            try:
+                pts = _parse_points(q.get("pts", [""])[0])
+                self._json(api.summarize_toric_web(pts))
             except (ValueError, KeyError) as exc:
                 self._json({"error": str(exc)}, code=400)
             except Exception as exc:  # noqa: BLE001

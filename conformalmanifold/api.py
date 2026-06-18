@@ -70,3 +70,97 @@ def summarize_cyclic(n: int, a: int, b: int, c: int) -> dict:
 def summarize_freeform(expr: str) -> dict:
     from .freeform import build_from_expr
     return summarize(build_from_expr(expr))
+
+
+# ===========================================================================
+# Toric "web builder": a user-drawn toric diagram -> dual (p,q) web + quiver
+# ===========================================================================
+def summarize_toric_web(points) -> dict:
+    """Given the lattice points of a toric diagram (the dot/grid diagram a
+    physicist draws), return its convex-hull toric diagram, the dual (p,q)
+    5-brane web, the conformal-manifold dimension, and -- when the geometry is
+    recognised -- the explicit quiver gauge theory.
+
+    `points`: iterable of (x, y) integer lattice points."""
+    from . import toric as T
+
+    pts = [(int(round(x)), int(round(y))) for (x, y) in points]
+    hull = T.convex_hull(pts)
+    if len(hull) < 3:
+        raise ValueError("need at least 3 non-collinear lattice points to span a "
+                         "two-dimensional toric diagram")
+
+    area2, B, I, edges = T.polygon_signature(hull)
+    legs = T.pq_web(hull)
+
+    out = {
+        "diagram": {
+            "input_points": [list(p) for p in pts],
+            "hull": [list(p) for p in hull],
+            "num_corners": len(hull),
+            "boundary_points": B,
+            "interior_points": I,
+            "norm_area2": area2,
+            "edge_lengths": list(edges),
+        },
+        "web": {
+            "legs": legs,                      # each {"pq":[p,q], "base":[x,y], "edge":i}
+            "num_external_legs": len(legs),
+            "charge_sum": [sum(l["pq"][0] for l in legs),
+                           sum(l["pq"][1] for l in legs)],
+        },
+        "conformal": {
+            "dim_conf": B - 1,
+            "formula": "dim_C M_conf = B - 1   (B = boundary lattice points "
+                       "= # external (p,q) legs)",
+            "num_gauge_groups": area2,         # = 2 * area of the toric diagram
+        },
+    }
+
+    geom = T.identify_toric(hull)
+    if geom is None:
+        out["identified"] = {
+            "matched": False,
+            "label": None,
+            "family": "(general toric CY3)",
+            "description": "A valid toric Calabi-Yau three-fold not in the named "
+                           "library; invariants are read from the toric diagram.",
+            "has_quiver": False,
+            "note": "An explicit quiver needs the inverse (brane-tiling) "
+                    "algorithm; the dimension and gauge-group count above hold "
+                    "for any toric phase.",
+        }
+        return out
+
+    note = getattr(geom, "note", "")
+    if isinstance(geom, T.ToricQuiver):
+        N = geom.num_nodes
+        out["identified"] = {
+            "matched": True,
+            "label": geom.label,
+            "family": geom.family,
+            "description": geom.description,
+            "has_quiver": True,
+            "note": note,
+        }
+        out["quiver"] = {
+            "num_nodes": N,
+            "dims": [1] * N,                   # all toric nodes are U(N)
+            "node_labels": ["U(N)"] * N,
+            "adjacency": geom.adjacency_matrix(),
+            "num_arrows": geom.num_fields,
+            "num_w_terms": geom.num_w_terms,
+            "dim_conf_ls": geom.dim_conf_ls(),
+            "valid": geom.validate() == [],
+        }
+    else:  # ToricDiagram (named, diagram-only)
+        out["identified"] = {
+            "matched": True,
+            "label": geom.label,
+            "family": geom.family,
+            "description": geom.description,
+            "has_quiver": False,
+            "note": (note + "  " if note else "") +
+                    "Named geometry; explicit quiver not built in (diagram-only).",
+        }
+    return out
