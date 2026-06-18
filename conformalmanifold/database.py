@@ -123,7 +123,146 @@ def default_entries():
     return out
 
 
+# ===========================================================================
+# Toric (non-orbifold) Calabi-Yau quivers -> a parallel `toric_quivers` table
+# ===========================================================================
+TORIC_SCHEMA = """
+CREATE TABLE IF NOT EXISTS toric_quivers (
+    label           TEXT PRIMARY KEY,
+    family          TEXT,
+    description     TEXT,
+    num_nodes       INTEGER,   -- gauge nodes
+    num_fields      INTEGER,   -- bifundamental + adjoint chirals
+    num_w_terms     INTEGER,   -- toric (two-term) superpotential monomials
+    dim_conf        INTEGER,   -- dim_C M_conf via LS/NSVZ counting (authoritative)
+    dim_conf_geom   INTEGER,   -- B - 1 from the toric diagram (cross-check)
+    boundary_points INTEGER,   -- B = # lattice points on the toric-diagram boundary
+    interior_points INTEGER,   -- I = # interior lattice points
+    norm_area2      INTEGER,   -- 2 * area = # gauge nodes of the minimal tiling
+    edge_lengths    TEXT,      -- JSON: sorted primitive edge lengths
+    diagram         TEXT,      -- JSON: CCW lattice-polygon vertices
+    arrows          TEXT,      -- JSON: {field: [src, tgt]}
+    superpotential  TEXT       -- JSON: [[sign, [field,...]], ...]
+);
+"""
+
+_TORIC_COLS = ["label", "family", "description", "num_nodes", "num_fields",
+               "num_w_terms", "dim_conf", "dim_conf_geom", "boundary_points",
+               "interior_points", "norm_area2", "edge_lengths", "diagram",
+               "arrows", "superpotential"]
+
+
+def toric_record(q) -> dict:
+    """Full per-geometry record for a `toric.ToricQuiver`."""
+    from .toric import convex_hull, polygon_signature
+    sig = q.signature()
+    area2, B, I, edges = sig if sig else (None, None, None, ())
+    return {
+        "label": q.label,
+        "family": q.family,
+        "description": q.description,
+        "num_nodes": q.num_nodes,
+        "num_fields": q.num_fields,
+        "num_w_terms": q.num_w_terms,
+        "dim_conf": q.dim_conf_ls(),
+        "dim_conf_geom": q.dim_conf_geometric(),
+        "boundary_points": B,
+        "interior_points": I,
+        "norm_area2": area2,
+        "edge_lengths": json.dumps(list(edges)),
+        "diagram": json.dumps([list(v) for v in convex_hull(q.diagram)] if q.diagram else []),
+        "arrows": json.dumps({str(k): list(v) for k, v in q.arrows.items()}),
+        "superpotential": json.dumps([[s, list(c)] for s, c in q.W]),
+    }
+
+
+def build_toric_database(quivers, db_path: str):
+    """quivers: iterable of toric.ToricQuiver.  Upserts one row per label."""
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(TORIC_SCHEMA)
+        placeholders = ",".join("?" for _ in _TORIC_COLS)
+        updates = ",".join(f"{c}=excluded.{c}" for c in _TORIC_COLS if c != "label")
+        sql = (f"INSERT INTO toric_quivers ({','.join(_TORIC_COLS)}) "
+               f"VALUES ({placeholders}) "
+               f"ON CONFLICT(label) DO UPDATE SET {updates}")
+        n = 0
+        for q in quivers:
+            rec = toric_record(q)
+            conn.execute(sql, [rec[c] for c in _TORIC_COLS])
+            n += 1
+        conn.commit()
+    finally:
+        conn.close()
+    return n
+
+
+TORIC_DIAGRAM_SCHEMA = """
+CREATE TABLE IF NOT EXISTS toric_diagrams (
+    label           TEXT PRIMARY KEY,
+    family          TEXT,
+    description     TEXT,
+    num_gauge       INTEGER,   -- # gauge groups = 2 * area of the toric diagram
+    dim_conf        INTEGER,   -- dim_C M_conf = B - 1
+    boundary_points INTEGER,   -- B
+    interior_points INTEGER,   -- I
+    norm_area2      INTEGER,   -- 2 * area
+    edge_lengths    TEXT,      -- JSON: sorted primitive edge lengths
+    diagram         TEXT,      -- JSON: CCW lattice-polygon vertices
+    note            TEXT
+);
+"""
+
+_TORIC_DIAGRAM_COLS = ["label", "family", "description", "num_gauge", "dim_conf",
+                       "boundary_points", "interior_points", "norm_area2",
+                       "edge_lengths", "diagram", "note"]
+
+
+def toric_diagram_record(d) -> dict:
+    """Per-geometry record for a `toric.ToricDiagram`."""
+    area2, B, I, edges = d.signature()
+    return {
+        "label": d.label,
+        "family": d.family,
+        "description": d.description,
+        "num_gauge": d.num_gauge_groups,
+        "dim_conf": d.dim_conf(),
+        "boundary_points": B,
+        "interior_points": I,
+        "norm_area2": area2,
+        "edge_lengths": json.dumps(list(edges)),
+        "diagram": json.dumps([list(v) for v in d.hull()]),
+        "note": d.note,
+    }
+
+
+def build_toric_diagram_database(diagrams, db_path: str):
+    """diagrams: iterable of toric.ToricDiagram.  Upserts one row per label."""
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(TORIC_DIAGRAM_SCHEMA)
+        placeholders = ",".join("?" for _ in _TORIC_DIAGRAM_COLS)
+        updates = ",".join(f"{c}=excluded.{c}" for c in _TORIC_DIAGRAM_COLS
+                           if c != "label")
+        sql = (f"INSERT INTO toric_diagrams ({','.join(_TORIC_DIAGRAM_COLS)}) "
+               f"VALUES ({placeholders}) "
+               f"ON CONFLICT(label) DO UPDATE SET {updates}")
+        n = 0
+        for d in diagrams:
+            rec = toric_diagram_record(d)
+            conn.execute(sql, [rec[c] for c in _TORIC_DIAGRAM_COLS])
+            n += 1
+        conn.commit()
+    finally:
+        conn.close()
+    return n
+
+
 if __name__ == "__main__":
     path = sys.argv[1] if len(sys.argv) > 1 else "quivers.db"
     n = build_database(default_entries(), path)
-    print(f"wrote {n} rows to {path}")
+    from .toric import default_toric_library, default_toric_diagram_library
+    m = build_toric_database(default_toric_library(), path)
+    k = build_toric_diagram_database(default_toric_diagram_library(), path)
+    print(f"wrote {n} orbifold rows + {m} toric-quiver rows + "
+          f"{k} toric-diagram rows to {path}")

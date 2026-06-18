@@ -4,6 +4,9 @@
     python -m conformalmanifold "A4 = Delta(12)"
     python -m conformalmanifold --cyclic 10 2 3 5
     python -m conformalmanifold --list
+    python -m conformalmanifold --toric conifold
+    python -m conformalmanifold --toric "Y(5,2)"
+    python -m conformalmanifold --list-toric
 """
 
 from __future__ import annotations
@@ -36,6 +39,17 @@ def main(argv: list[str] | None = None) -> int:
     if argv and argv[0] == "--list":
         for n in list_groups():
             print(n)
+        return 0
+
+    if argv and argv[0] == "--list-toric":
+        from .toric import list_toric
+        for lbl in list_toric():
+            print(lbl)
+        return 0
+
+    if argv and argv[0] == "--toric":
+        from .toric import make_toric
+        print(make_toric(argv[1]))
         return 0
 
     if argv and argv[0] == "--serve":

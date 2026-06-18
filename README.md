@@ -144,6 +144,141 @@ STEP 3  Conformal manifold (Leigh-Strassler / GKSTW)
 
 (`gcd(10,2)+gcd(10,3)+gcd(10,5)−1 = 2+1+5−1 = 7`.)
 
+## Toric Calabi–Yau quivers (`conformalmanifold.toric`)
+
+The orbifold pipeline above covers `C³/Γ`. The companion module
+`conformalmanifold.toric` extends the same conformal-manifold count to the
+broader class of **toric** Calabi–Yau three-fold singularities — the conifold,
+the suspended pinch point, the `Y^{p,q}` and `L^{a,b,c}` families, and the del
+Pezzo cones. Each geometry carries a **quiver gauge theory** (gauge nodes,
+oriented bifundamental arrows, a two-term toric superpotential) and a **toric
+diagram** (a convex lattice polygon in `Z²`, the Newton polygon of the brane
+tiling's Kasteleyn determinant, defined up to `GL(2,Z)` + translation).
+
+### Labeling scheme
+
+Geometries are named by canonical string labels (parsed by `make_toric`). There
+are two tiers:
+
+**Explicit quiver** (`ToricQuiver` — gauge nodes, arrows, superpotential, plus
+the toric diagram; dimension cross-checked both ways):
+
+| label | geometry | `dim_C M_conf` |
+|-------|----------|----------------|
+| `C3` | flat `C³` (N=4 SYM as N=1) | 2 |
+| `conifold` | `C(T^{1,1})`, Klebanov–Witten `= Y^{1,0}` | 3 |
+| `Y(p,q)` | `Y^{p,q}`, `0<q<p` | 3 |
+| `L(1,5,2)` | `L^{1,5,2}` (explicit non-`Y` member) | 3 |
+| `dP0` | del Pezzo 0 `= C³/Z₃(1,1,1) = C(P²)` | 2 |
+| `dP1` | del Pezzo 1 `= Y^{2,1}` | 3 |
+
+**Diagram only** (`ToricDiagram` — any toric CY3 by its toric diagram;
+`dim_C M_conf = B − 1` and `#gauge = 2·area` from the polygon, no hand-built
+tiling). There are infinitely many toric CY3 — one per lattice polygon — so the
+library ships a representative spread and `from_diagram` accepts any polygon:
+
+| label | family | `#gauge` | `dim` |
+|-------|--------|----------|-------|
+| `dP2`, `dP3` | del Pezzo cones (`dPₙ`: `n+3` gauge, `dim n+2`) | 5, 6 | 4, 5 |
+| `F0` | cone over `P¹×P¹` (Hirzebruch F0) | 4 | 3 |
+| `Z(n,m)` | `C³/(Z_n×Z_m)` orbifold (`dim = n+m+gcd−1`) | `n·m` | … |
+| `L(a,b,c)` | general `L^{a,b,c}` quadrilateral | `a+b` | `B−1` |
+
+```
+python -m conformalmanifold --toric conifold       # explicit quiver
+python -m conformalmanifold --toric "Y(5,2)"
+python -m conformalmanifold --toric dP3             # diagram only
+python -m conformalmanifold --toric "Z(3,4)"
+python -m conformalmanifold --list-toric
+```
+
+```python
+from conformalmanifold.toric import from_diagram
+g = from_diagram("my-geom", [(1,0),(0,1),(-1,1),(-1,0),(0,-1),(1,-1)])
+g.dim_conf(), g.num_gauge_groups          # (5, 6)   -- any toric diagram works
+```
+
+### Convention / scope
+
+The dimension reported is the conformal-manifold dimension counted in the
+**gauge + toric-superpotential coupling space** — the "β-deformation sector" —
+the *same convention the orbifold pipeline uses*. For a **generic** toric CY3
+this is the full conformal manifold (Benvenuti–Hanany, hep-th/0502043: a general
+`Y^{p,q}` is 3-dimensional, matching `Y(p,q)`). At **symmetry-enhanced** special
+points the true conformal manifold is larger, because extra non-toric marginal
+operators open up — the two known cases are flagged with a `note`:
+
+- `conifold = Y^{1,0}`: this count gives **3**, the true dimension is **5**
+  (Benvenuti–Hanany) — enhanced `SU(2)×SU(2)` flavour symmetry;
+- `C³` / N=4 SYM: this count gives **2**, the true dimension is **3**
+  (Leigh–Strassler `τ, β, h`).
+
+### The dimension, two ways
+
+For each geometry the conformal-manifold dimension is given as **two
+formulations of the same toric count** (the test-suite asserts they agree — they
+are two views of one combinatorial quantity, not independent derivations):
+
+1. **Field theory (authoritative).** Leigh–Strassler / NSVZ marginal-coupling
+   counting written directly on the quiver,
+   ```
+   dim_C M_conf = (n_gauge + n_W) − rank(M),
+   ```
+   where `M` is the incidence matrix of the linearised β-function conditions
+   (one row per gauge node + one per superpotential term; one column per field;
+   entry `1` iff the field touches that node / appears in that term). This is the
+   same count `conformal.py` performs for the orbifolds, now on a general quiver.
+
+2. **Geometry (closed form).** The number of boundary lattice points of the
+   toric diagram, minus one,
+   ```
+   dim_C M_conf = B − 1,
+   ```
+   where `B` is the number of external legs of the `(p,q)` 5-brane web dual to
+   the toric diagram. For `C³/Z_K(a,b,c)` the triangle has
+   `B = gcd(K,a) + gcd(K,b) + gcd(K,c)`, so `B − 1` reproduces the orbifold
+   character formula `Σ_g fix_Q(g) − 1` exactly — the toric statement *contains*
+   the orbifold one.
+
+`Y^{p,q}` and the smooth `L^{a,b,c}` whose toric quadrilateral has primitive
+edges (`B = 4`) give `dim = 3`; geometries with longer boundaries give more.
+
+### Database
+
+`python -m conformalmanifold.database quivers.db` builds **three** tables in one
+shot: the orbifold `quivers` table, a `toric_quivers` table (explicit-quiver
+geometries: quiver sizes, `dim_conf`, the geometric `B − 1` cross-check,
+lattice-point counts, and the full arrows + superpotential as JSON), and a
+`toric_diagrams` table (diagram-only geometries: `#gauge = 2·area`, `dim_conf`,
+boundary/interior points, edge lengths, polygon as JSON).
+
+```python
+from conformalmanifold.database import (build_toric_database,
+                                         build_toric_diagram_database)
+from conformalmanifold.toric import (default_toric_library,
+                                     default_toric_diagram_library)
+build_toric_database(default_toric_library(), "quivers.db")
+build_toric_diagram_database(default_toric_diagram_library(), "quivers.db")
+```
+
+### Non-isolated singularities
+
+The **explicit-quiver** library is restricted to **isolated** toric CY3 (plus
+smooth `C³`), where the field-theory count and the geometric `B − 1` closed form
+agree — the tests assert `LS == B − 1` there. Two non-isolated cases are
+deliberately kept out of the *explicit-quiver* library, because their `N=2`
+symmetry enhancement breaks that identity:
+
+- `C²/Z_n × C` (the `A_{n-1}` necklace, a line of `A`-singularities): `dim = n+1`,
+  which disagrees with the `N=1` incidence count `n`.
+- `SPP`, `xy = z w²` (a line of `A_1` singularities).
+
+The **diagram-only** catalog is not so restricted: it does include non-isolated
+geometries (e.g. some `C³/(Z_n×Z_m)`), where only the geometric `dim = B − 1` is
+reported and no field-theory `LS` cross-check is asserted — so no false identity
+is claimed. The `C²/Γ × C` orbifolds are also covered by the `C²/Γ × C` branch of
+the orbifold pipeline, via the character formula.
+
 ## Scope / caveats
 
 - The closed form is for a **faithful** Γ (a genuine SU(3) subgroup), which
