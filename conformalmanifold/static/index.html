@@ -64,6 +64,7 @@
         font-weight:650;letter-spacing:.3px}
   .badge.chiral{background:#10261c;border:1px solid #2f7d57;color:#56d39b}
   .badge.vector{background:#2a230f;border:1px solid #7d5e2f;color:var(--warn)}
+  .badge.geom{background:var(--panel2);border:1px solid var(--line);color:var(--accent)}
   .result{display:flex;align-items:center;gap:20px;margin-top:8px;
            background:linear-gradient(180deg,#16241f,#13201c);
            border:1px solid #21503f;border-radius:14px;padding:20px 24px}
@@ -535,7 +536,7 @@ function renderToric(d){
   if(d.quiver){
     const q=d.quiver;
     $("t-quivercard").classList.remove("hide");
-    const badge=$("t-qbadge"); badge.className="badge chiral"; badge.textContent=id.label;
+    const badge=$("t-qbadge"); badge.className="badge geom"; badge.textContent=id.label;
     $("t-qnodes").textContent=q.num_nodes;
     $("t-qarrows").textContent=q.num_arrows;
     $("t-qW").textContent=q.num_w_terms;
