@@ -9,6 +9,8 @@ Endpoints
     GET /api/compute?name=...   full pipeline summary as JSON
     GET /api/compute?name=__cyclic__&n=10&a=2&b=3&c=5
     GET /api/toric_web?pts=x0,y0;x1,y1;...   toric diagram -> (p,q) web + quiver
+        optional &tri=a-b-c.d-e-f...  (current triangulation, index-triples)
+        optional &flop=i,j            (flop this internal edge before rendering)
 """
 
 from __future__ import annotations
@@ -40,6 +42,34 @@ def _parse_points(s: str):
     if not pts:
         raise ValueError("no toric-diagram points supplied")
     return pts
+
+
+def _parse_triangulation(s: str):
+    """'a-b-c.d-e-f...' -> [(a,b,c), (d,e,f), ...]  (index-triples), or None."""
+    s = (s or "").strip()
+    if not s:
+        return None
+    tris = []
+    for chunk in s.split("."):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        ijk = chunk.split("-")
+        if len(ijk) != 3:
+            raise ValueError(f"bad triangle {chunk!r}; expected 'i-j-k'")
+        tris.append(tuple(int(v) for v in ijk))
+    return tris or None
+
+
+def _parse_edge(s: str):
+    """'i,j' -> [i, j]  (a triangulation edge), or None."""
+    s = (s or "").strip()
+    if not s:
+        return None
+    ij = s.split(",")
+    if len(ij) != 2:
+        raise ValueError(f"bad edge {s!r}; expected 'i,j'")
+    return [int(ij[0]), int(ij[1])]
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -93,7 +123,9 @@ class Handler(BaseHTTPRequestHandler):
             q = parse_qs(parsed.query)
             try:
                 pts = _parse_points(q.get("pts", [""])[0])
-                self._json(api.summarize_toric_web(pts))
+                tri = _parse_triangulation(q.get("tri", [""])[0])
+                flop = _parse_edge(q.get("flop", [""])[0])
+                self._json(api.summarize_toric_web(pts, tri, flop))
             except (ValueError, KeyError) as exc:
                 self._json({"error": str(exc)}, code=400)
             except Exception as exc:  # noqa: BLE001

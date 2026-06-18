@@ -75,14 +75,21 @@ def summarize_freeform(expr: str) -> dict:
 # ===========================================================================
 # Toric "web builder": a user-drawn toric diagram -> dual (p,q) web + quiver
 # ===========================================================================
-def summarize_toric_web(points) -> dict:
+def summarize_toric_web(points, triangulation=None, flop_edge=None) -> dict:
     """Given the lattice points of a toric diagram (the dot/grid diagram a
-    physicist draws), return its convex-hull toric diagram, the dual (p,q)
-    5-brane web, the conformal-manifold dimension, and -- when the geometry is
+    physicist draws), return its convex-hull toric diagram, a triangulation
+    (resolution / toric phase) of it, the dual (p,q) 5-brane web for that
+    triangulation, the conformal-manifold dimension, and -- when the geometry is
     recognised -- the explicit quiver gauge theory.
 
-    `points`: iterable of (x, y) integer lattice points."""
+    `points`        : iterable of (x, y) integer lattice points.
+    `triangulation` : optional list of index-triples (into the canonical lattice
+                      point order) -- the current phase to render; a default
+                      triangulation is computed if omitted or inconsistent.
+    `flop_edge`     : optional [i, j] internal edge to flop in `triangulation`
+                      before rendering."""
     from . import toric as T
+    from . import resolution as Rz
 
     pts = [(int(round(x)), int(round(y))) for (x, y) in points]
     hull = T.convex_hull(pts)
@@ -93,6 +100,30 @@ def summarize_toric_web(points) -> dict:
     area2, B, I, edges = T.polygon_signature(hull)
     legs = T.pq_web(hull)
 
+    # --- resolution: lattice points + triangulation + dual web ---------------
+    lat = Rz.lattice_points(hull)             # canonical index order
+    interior = set(Rz.interior_lattice_points(hull))
+    nlat = len(lat)
+
+    def _valid_tri(tri):
+        if not tri:
+            return False
+        seen = set()
+        for t in tri:
+            if len(t) != 3 or any(not (0 <= v < nlat) for v in t):
+                return False
+            seen.update(t)
+        return seen == set(range(nlat)) and len(tri) == area2
+
+    tri = [tuple(t) for t in triangulation] if triangulation else None
+    if not _valid_tri(tri):
+        _, tri = Rz.triangulate(hull)         # (re)compute the default phase
+    if flop_edge is not None:
+        tri = Rz.flop(lat, tri, flop_edge)    # raises ValueError if not flippable
+
+    web = Rz.dual_web(lat, tri, hull)
+    flippable = Rz.flippable_edges(lat, tri)
+
     out = {
         "diagram": {
             "input_points": [list(p) for p in pts],
@@ -102,6 +133,14 @@ def summarize_toric_web(points) -> dict:
             "interior_points": I,
             "norm_area2": area2,
             "edge_lengths": list(edges),
+        },
+        "resolution": {
+            "lattice_points": [list(p) for p in lat],
+            "boundary_flags": [p not in interior for p in lat],   # True = boundary
+            "triangulation": [list(t) for t in tri],              # index-triples
+            "num_triangles": len(tri),
+            "web": web,                       # junctions / internal_edges / external_legs
+            "flippable_edges": flippable,     # [[i,j], ...]
         },
         "web": {
             "legs": legs,                      # each {"pq":[p,q], "base":[x,y], "edge":i}

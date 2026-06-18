@@ -1,0 +1,311 @@
+"""Toric resolutions: triangulations of the toric diagram and their (p,q) webs.
+
+A crepant resolution of a toric Calabi-Yau three-fold singularity is a
+triangulation of its toric diagram into *unimodular* (area-1/2, lattice-point-
+free) triangles, using ALL lattice points of the diagram (boundary + interior)
+as vertices.  Each such triangulation is a smooth toric phase; different
+triangulations are related by **flops** (swapping the diagonal of the quadri-
+lateral formed by two adjacent triangles).
+
+The dual of a triangulation is the (p,q) 5-brane web:
+
+    * one trivalent **junction** per triangle (drawn at the triangle centroid --
+      a clear, never-degenerate schematic; the circumcenter gives the metrically
+      perpendicular web but collapses to a point for right-angled lattice
+      triangles such as the two halves of the conifold square, hiding the flop);
+    * one finite internal **edge** per internal triangulation edge (joining the
+      two adjacent junctions) -- so a flop visibly restructures the web;
+    * one semi-infinite external **leg** per boundary segment, leaving the
+      adjacent junction along the outward edge-normal with **exact** (p,q) charge
+      equal to that normal.
+
+Everything here is exact integer arithmetic except the circumcenters (rational,
+returned as floats for drawing).  Pure stdlib (no numpy needed).
+"""
+
+from __future__ import annotations
+
+from math import gcd
+
+from .toric import convex_hull, polygon_signature
+
+
+# ----------------------------------------------------------------------------
+# exact integer predicates
+# ----------------------------------------------------------------------------
+def _orient(a, b, c):
+    """>0 iff a,b,c make a left turn (CCW); 0 iff collinear."""
+    return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+
+
+def _in_circumcircle(a, b, c, d):
+    """For CCW triangle a,b,c: >0 iff d is strictly inside its circumcircle."""
+    ax, ay = a[0] - d[0], a[1] - d[1]
+    bx, by = b[0] - d[0], b[1] - d[1]
+    cx, cy = c[0] - d[0], c[1] - d[1]
+    return ((ax * ax + ay * ay) * (bx * cy - cx * by)
+            - (bx * bx + by * by) * (ax * cy - cx * ay)
+            + (cx * cx + cy * cy) * (ax * by - bx * ay))
+
+
+def point_in_convex(p, hull):
+    """True iff p is inside or on the boundary of the CCW convex polygon `hull`."""
+    n = len(hull)
+    for i in range(n):
+        if _orient(hull[i], hull[(i + 1) % n], p) < 0:
+            return False
+    return True
+
+
+# ----------------------------------------------------------------------------
+# lattice points of the toric diagram
+# ----------------------------------------------------------------------------
+def lattice_points(hull):
+    """All lattice points (boundary + interior) of the polygon, in canonical
+    (sorted) order -- this order indexes triangulation vertices."""
+    hull = convex_hull(hull)
+    xs = [p[0] for p in hull]
+    ys = [p[1] for p in hull]
+    pts = []
+    for x in range(min(xs), max(xs) + 1):
+        for y in range(min(ys), max(ys) + 1):
+            if point_in_convex((x, y), hull):
+                pts.append((x, y))
+    return sorted(pts)
+
+
+def interior_lattice_points(hull):
+    """Lattice points strictly inside the polygon (no boundary)."""
+    hull = convex_hull(hull)
+    n = len(hull)
+    out = []
+    for p in lattice_points(hull):
+        if all(_orient(hull[i], hull[(i + 1) % n], p) > 0 for i in range(n)):
+            out.append(p)
+    return out
+
+
+def boundary_lattice_points_ordered(hull):
+    """Boundary lattice points (a point is on the boundary iff it lies on some
+    edge).  Returned sorted (canonical)."""
+    hull = convex_hull(hull)
+    inter = set(interior_lattice_points(hull))
+    return [p for p in lattice_points(hull) if p not in inter]
+
+
+# ----------------------------------------------------------------------------
+# triangulation: fan + point insertion (always valid) + Lawson Delaunay flips
+# ----------------------------------------------------------------------------
+def _ccw(tri, pts):
+    a, b, c = (pts[i] for i in tri)
+    return tri if _orient(a, b, c) > 0 else (tri[0], tri[2], tri[1])
+
+
+def _insert_point(tris, pts, pi):
+    """Insert vertex index pi into the current triangulation (split the triangle
+    that contains it, or the triangles sharing the edge it lies on)."""
+    P = pts[pi]
+    inside = None
+    edge_tris = []
+    for ti, (a, b, c) in enumerate(tris):
+        A, B, C = pts[a], pts[b], pts[c]
+        o1, o2, o3 = _orient(A, B, P), _orient(B, C, P), _orient(C, A, P)
+        if o1 > 0 and o2 > 0 and o3 > 0:
+            inside = ti
+            break
+        if o1 >= 0 and o2 >= 0 and o3 >= 0:
+            zeros = (o1 == 0, o2 == 0, o3 == 0)
+            if sum(zeros) == 1:
+                edge_tris.append((ti, zeros))
+    if inside is not None:
+        a, b, c = tris[inside]
+        tris[inside] = (a, b, pi)
+        tris.append((b, c, pi))
+        tris.append((c, a, pi))
+        return
+    new, remove = [], set()
+    for ti, zeros in edge_tris:
+        a, b, c = tris[ti]
+        remove.add(ti)
+        if zeros[0]:          # P on edge AB, apex C
+            new += [(a, pi, c), (pi, b, c)]
+        elif zeros[1]:        # P on edge BC, apex A
+            new += [(b, pi, a), (pi, c, a)]
+        else:                 # P on edge CA, apex B
+            new += [(c, pi, b), (pi, a, b)]
+    tris[:] = [t for i, t in enumerate(tris) if i not in remove] + new
+
+
+def _delaunay_flips(tris, pts, max_iter=10000):
+    """Lawson edge flips toward the Delaunay triangulation (nicer default web).
+    Only strictly-improving flips on convex quads are taken, so it terminates;
+    any outcome is still a valid unimodular triangulation."""
+    for _ in range(max_iter):
+        em = edge_map(tris)
+        flipped = False
+        for edge, owners in em.items():
+            if len(owners) != 2:
+                continue
+            i, j = edge
+            t1, t2 = owners
+            k = _apex(tris[t1], i, j)
+            l = _apex(tris[t2], i, j)
+            if k is None or l is None:
+                continue
+            A, Bp, C, D = pts[i], pts[j], pts[k], pts[l]
+            tri = _ccw((i, j, k), pts)
+            a, b, c = (pts[tri[0]], pts[tri[1]], pts[tri[2]])
+            if _in_circumcircle(a, b, c, D) > 0 and _convex_quad(pts, i, j, k, l):
+                tris[t1] = _ccw((i, k, l), pts)
+                tris[t2] = _ccw((j, k, l), pts)
+                flipped = True
+                break
+        if not flipped:
+            return
+
+
+def triangulate(hull_in):
+    """Return (pts, tris): the canonical lattice-point list and a unimodular
+    triangulation (CCW index-triples into pts) of the toric diagram."""
+    hull = convex_hull(hull_in)
+    if len(hull) < 3:
+        raise ValueError("need a 2-dimensional toric diagram (>=3 corners)")
+    pts = lattice_points(hull)
+    idx = {p: i for i, p in enumerate(pts)}
+    tris = []
+    c0 = idx[hull[0]]
+    for k in range(1, len(hull) - 1):           # fan the convex corners
+        tris.append(_ccw((c0, idx[hull[k]], idx[hull[k + 1]]), pts))
+    corners = set(hull)
+    for p in pts:
+        if p in corners:
+            continue
+        _insert_point(tris, pts, idx[p])
+    _delaunay_flips(tris, pts)
+    return pts, [tuple(t) for t in tris]
+
+
+# ----------------------------------------------------------------------------
+# edges, apexes, flops
+# ----------------------------------------------------------------------------
+def edge_map(tris):
+    """{(i,j) sorted: [triangle indices owning that edge]}."""
+    em = {}
+    for ti, (a, b, c) in enumerate(tris):
+        for (u, v) in ((a, b), (b, c), (c, a)):
+            em.setdefault((min(u, v), max(u, v)), []).append(ti)
+    return em
+
+
+def _apex(tri, i, j):
+    """The vertex of triangle `tri` other than i and j (or None)."""
+    rest = [v for v in tri if v != i and v != j]
+    return rest[0] if len(rest) == 1 else None
+
+
+def _convex_quad(pts, i, j, k, l):
+    """True iff the quad with diagonal (i,j) and apexes k,l is strictly convex,
+    i.e. the flop to diagonal (k,l) is geometrically valid."""
+    # k,l must lie on opposite sides of line ij, and i,j on opposite sides of kl
+    s1 = _orient(pts[i], pts[j], pts[k])
+    s2 = _orient(pts[i], pts[j], pts[l])
+    s3 = _orient(pts[k], pts[l], pts[i])
+    s4 = _orient(pts[k], pts[l], pts[j])
+    return (s1 * s2 < 0) and (s3 * s4 < 0)
+
+
+def flippable_edges(pts, tris):
+    """Internal edges whose two triangles form a convex quad (can be flopped)."""
+    out = []
+    for (i, j), owners in edge_map(tris).items():
+        if len(owners) != 2:
+            continue
+        k = _apex(tris[owners[0]], i, j)
+        l = _apex(tris[owners[1]], i, j)
+        if k is not None and l is not None and _convex_quad(pts, i, j, k, l):
+            out.append([i, j])
+    return out
+
+
+def flop(pts, tris, edge):
+    """Flop the internal edge `edge=(i,j)`: replace diagonal (i,j) with (k,l).
+    Returns a new triangulation list.  Raises ValueError if not flippable."""
+    i, j = (min(edge), max(edge))
+    owners = edge_map(tris).get((i, j), [])
+    if len(owners) != 2:
+        raise ValueError(f"edge {(i, j)} is not an internal edge")
+    k = _apex(tris[owners[0]], i, j)
+    l = _apex(tris[owners[1]], i, j)
+    if k is None or l is None or not _convex_quad(pts, i, j, k, l):
+        raise ValueError(f"edge {(i, j)} is not flippable (non-convex quad)")
+    new = []
+    for ti, t in enumerate(tris):
+        if ti in owners:
+            continue
+        new.append(t)
+    new.append(_ccw((i, k, l), pts))
+    new.append(_ccw((j, k, l), pts))
+    return new
+
+
+# ----------------------------------------------------------------------------
+# the dual (p,q) web
+# ----------------------------------------------------------------------------
+def circumcenter(a, b, c):
+    """Circumcenter of triangle a,b,c as a float (x,y) -- the metrically exact
+    (perpendicular) web junction, kept for reference (see `dual_web`)."""
+    ax, ay = a
+    bx, by = b
+    cx, cy = c
+    d = 2.0 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by))
+    a2 = ax * ax + ay * ay
+    b2 = bx * bx + by * by
+    c2 = cx * cx + cy * cy
+    ux = (a2 * (by - cy) + b2 * (cy - ay) + c2 * (ay - by)) / d
+    uy = (a2 * (cx - bx) + b2 * (ax - cx) + c2 * (bx - ax)) / d
+    return [ux, uy]
+
+
+def centroid(a, b, c):
+    """Centroid of triangle a,b,c -- the web junction position used for drawing."""
+    return [(a[0] + b[0] + c[0]) / 3.0, (a[1] + b[1] + c[1]) / 3.0]
+
+
+def dual_web(pts, tris, hull):
+    """The (p,q) web dual to triangulation `tris` of polygon `hull`.
+
+    Returns {"junctions": [...], "internal_edges": [[t1,t2],...],
+             "external_legs": [{"junction": t, "pq": [p,q], "base": [x,y]}, ...]}.
+    `junctions[t]` is the circumcenter of triangle t."""
+    hull = convex_hull(hull)
+    junctions = [centroid(pts[a], pts[b], pts[c]) for (a, b, c) in tris]
+    # which (i,j) lattice segments are on the polygon boundary?
+    bset = set()
+    n = len(hull)
+    for e in range(n):
+        a, b = hull[e], hull[(e + 1) % n]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        g = gcd(abs(dx), abs(dy)) or 1
+        ux, uy = dx // g, dy // g
+        for t in range(g):
+            p0 = (a[0] + ux * t, a[1] + uy * t)
+            p1 = (a[0] + ux * (t + 1), a[1] + uy * (t + 1))
+            bset.add((p0, p1, (uy, -ux)))   # segment + outward normal (CCW)
+    idx = {p: i for i, p in enumerate(pts)}
+    bnorm = {}
+    for (p0, p1, nrm) in bset:
+        key = (min(idx[p0], idx[p1]), max(idx[p0], idx[p1]))
+        bnorm[key] = nrm
+
+    internal_edges, external_legs = [], []
+    for (i, j), owners in edge_map(tris).items():
+        if len(owners) == 2:
+            internal_edges.append([owners[0], owners[1]])
+        elif len(owners) == 1 and (i, j) in bnorm:
+            t = owners[0]
+            mid = [(pts[i][0] + pts[j][0]) / 2.0, (pts[i][1] + pts[j][1]) / 2.0]
+            external_legs.append({"junction": t, "pq": list(bnorm[(i, j)]),
+                                  "base": mid})
+    return {"junctions": junctions,
+            "internal_edges": internal_edges,
+            "external_legs": external_legs}
