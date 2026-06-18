@@ -2,11 +2,13 @@
 
 Companion to the C^3/Gamma orbifold pipeline (`pipeline.run`).  Where that module
 covers the *orbifold* singularities C^3/Gamma, this one covers the broader class
-of **isolated toric** Calabi-Yau three-fold singularities -- the conifold, the
-Y^{p,q} and L^{a,b,c} families, the del Pezzo cones, and (as a consistency
-overlap) the abelian orbifolds C^3/Z_K.  Any other toric singularity can be
-added by its toric diagram via `from_diagram` / `ToricDiagram` (dimension and
-gauge-group count from the polygon alone, no hand-built tiling required).
+of **toric** Calabi-Yau three-fold singularities -- the conifold, the Y^{p,q} and
+L^{a,b,c} families, the del Pezzo / Hirzebruch cones, and the C^3/(Z_n x Z_m)
+orbifolds.  Geometries with an explicit, validated quiver (where the field-theory
+count and the geometric B-1 form agree) are isolated singularities; any other
+toric singularity -- isolated or not -- can be added by its toric diagram via
+`from_diagram` / `ToricDiagram` (dimension and gauge-group count from the polygon
+alone, no hand-built tiling required).
 
 Each geometry is specified by
 
