@@ -492,10 +492,10 @@ function jsHull(points){           // monotone chain -> CCW, no collinear
 }
 
 function tEmpty(msg){
-  $("t-empty").textContent = msg || "lay down at least 3 non-collinear points…";
+  $("t-empty").textContent = msg || "click lattice points to place a toric diagram (need ≥ 3 non-collinear)…";
   $("t-empty").classList.remove("hide"); $("t-body").classList.add("hide");
   $("t-quivercard").classList.add("hide");
-  $("grid").innerHTML = baseGrid(); $("t-web").innerHTML = "";
+  $("grid").innerHTML = emptyGrid(); $("t-web").innerHTML = "";
 }
 
 function baseGrid(){               // faint lattice + axes
@@ -503,6 +503,16 @@ function baseGrid(){               // faint lattice + axes
   for(let g=-T_RANGE; g<=T_RANGE; g++){
     s+=`<line class="${g===0?'gridaxis':'gridline'}" x1="${sx(-T_RANGE)}" y1="${sy(g)}" x2="${sx(T_RANGE)}" y2="${sy(g)}"/>`;
     s+=`<line class="${g===0?'gridaxis':'gridline'}" x1="${sx(g)}" y1="${sy(-T_RANGE)}" x2="${sx(g)}" y2="${sy(T_RANGE)}"/>`;
+  }
+  return s;
+}
+
+// the interactive grid before a diagram exists: clickable dots, selected ones lit
+function emptyGrid(){
+  let s = baseGrid();
+  for(let gx=-T_RANGE; gx<=T_RANGE; gx++) for(let gy=-T_RANGE; gy<=T_RANGE; gy++){
+    const sel = toricPts.has(gKey(gx,gy));
+    s+=`<circle class="gridpt${sel?' sel':''}" data-gx="${gx}" data-gy="${gy}" cx="${sx(gx)}" cy="${sy(gy)}" r="${sel?5.5:3.2}"/>`;
   }
   return s;
 }

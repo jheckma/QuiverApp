@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from math import gcd
 
-from .toric import convex_hull, polygon_signature
+from .toric import convex_hull, normalized_area, polygon_signature
 
 
 # ----------------------------------------------------------------------------
@@ -188,6 +188,29 @@ def triangulate(hull_in):
 # ----------------------------------------------------------------------------
 # edges, apexes, flops
 # ----------------------------------------------------------------------------
+def is_valid_triangulation(pts, tris, hull):
+    """True iff `tris` (index-triples into `pts`) is a genuine unimodular
+    triangulation of `hull`: right number of triangles (= 2*area), each CCW and
+    lattice-area-1/2, every lattice point used, and edge-manifold (no edge shared
+    by >2 triangles).  Guards the API against a hand-crafted bogus `tri=` query."""
+    hull = convex_hull(hull)
+    n = len(pts)
+    if len(tris) != normalized_area(hull):
+        return False
+    used = set()
+    for t in tris:
+        if len(t) != 3 or len(set(t)) != 3 or any(not (0 <= v < n) for v in t):
+            return False
+        a, b, c = pts[t[0]], pts[t[1]], pts[t[2]]
+        o = _orient(a, b, c)
+        if o <= 0 or o != 1:           # CCW and unimodular (2*area == 1)
+            return False
+        used.update(t)
+    if used != set(range(n)):
+        return False
+    return all(len(o) <= 2 for o in edge_map(tris).values())
+
+
 def edge_map(tris):
     """{(i,j) sorted: [triangle indices owning that edge]}."""
     em = {}
@@ -276,7 +299,7 @@ def dual_web(pts, tris, hull):
 
     Returns {"junctions": [...], "internal_edges": [[t1,t2],...],
              "external_legs": [{"junction": t, "pq": [p,q], "base": [x,y]}, ...]}.
-    `junctions[t]` is the circumcenter of triangle t."""
+    `junctions[t]` is the centroid of triangle t (see module docstring)."""
     hull = convex_hull(hull)
     junctions = [centroid(pts[a], pts[b], pts[c]) for (a, b, c) in tris]
     # which (i,j) lattice segments are on the polygon boundary?

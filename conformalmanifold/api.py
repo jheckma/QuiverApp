@@ -103,21 +103,11 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None) -> dict:
     # --- resolution: lattice points + triangulation + dual web ---------------
     lat = Rz.lattice_points(hull)             # canonical index order
     interior = set(Rz.interior_lattice_points(hull))
-    nlat = len(lat)
-
-    def _valid_tri(tri):
-        if not tri:
-            return False
-        seen = set()
-        for t in tri:
-            if len(t) != 3 or any(not (0 <= v < nlat) for v in t):
-                return False
-            seen.update(t)
-        return seen == set(range(nlat)) and len(tri) == area2
 
     tri = [tuple(t) for t in triangulation] if triangulation else None
-    if not _valid_tri(tri):
+    if not (tri and Rz.is_valid_triangulation(lat, tri, hull)):
         _, tri = Rz.triangulate(hull)         # (re)compute the default phase
+        flop_edge = None                      # a stale flop no longer applies
     if flop_edge is not None:
         tri = Rz.flop(lat, tri, flop_edge)    # raises ValueError if not flippable
 

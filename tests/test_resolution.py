@@ -114,6 +114,20 @@ def test_interior_points():
     assert len(inter) == len(allp) - polygon_signature(hull)[1]
 
 
+def test_is_valid_triangulation_guard():
+    hull = convex_hull([(0, 0), (2, 0), (0, 2)])
+    pts, tris = R.triangulate(hull)
+    assert R.is_valid_triangulation(pts, tris, hull)
+    # a bogus "triangulation" that covers all indices and has the right count but
+    # contains an oversized (non-unimodular) overlapping triangle must be rejected
+    bogus = [(0, 5, 2), (0, 3, 1), (1, 4, 2), (3, 5, 4)]
+    assert not R.is_valid_triangulation(pts, bogus, hull)
+    # the API falls back to the default when handed a bogus triangulation
+    from conformalmanifold import api
+    r = api.summarize_toric_web([(0, 0), (2, 0), (0, 2)], bogus)
+    assert r["resolution"]["num_triangles"] == 4   # default, not the bogus one
+
+
 def test_circumcenter_equidistant():
     cc = R.circumcenter((0, 0), (2, 0), (0, 2))
     import math
