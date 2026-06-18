@@ -144,6 +144,95 @@ STEP 3  Conformal manifold (Leigh-Strassler / GKSTW)
 
 (`gcd(10,2)+gcd(10,3)+gcd(10,5)−1 = 2+1+5−1 = 7`.)
 
+## Toric Calabi–Yau quivers (`conformalmanifold.toric`)
+
+The orbifold pipeline above covers `C³/Γ`. The companion module
+`conformalmanifold.toric` extends the same conformal-manifold count to the
+broader class of **toric** Calabi–Yau three-fold singularities — the conifold,
+the suspended pinch point, the `Y^{p,q}` and `L^{a,b,c}` families, and the del
+Pezzo cones. Each geometry carries a **quiver gauge theory** (gauge nodes,
+oriented bifundamental arrows, a two-term toric superpotential) and a **toric
+diagram** (a convex lattice polygon in `Z²`, the Newton polygon of the brane
+tiling's Kasteleyn determinant, defined up to `GL(2,Z)` + translation).
+
+### Labeling scheme
+
+Geometries are named by canonical string labels (parsed by `make_toric`):
+
+| label | geometry | `dim_C M_conf` |
+|-------|----------|----------------|
+| `C3` | flat `C³` (N=4 SYM as N=1) | 2 |
+| `conifold` | `C(T^{1,1})`, Klebanov–Witten | 3 |
+| `Y(p,q)` | `Y^{p,q}`, `0<q<p` | 3 |
+| `L(1,5,2)` | `L^{1,5,2}` (explicit non-`Y` member) | 3 |
+| `dP0` | del Pezzo 0 `= C³/Z₃(1,1,1) = C(P²)` | 2 |
+| `dP1` | del Pezzo 1 `= Y^{2,1}` | 3 |
+
+```
+python -m conformalmanifold --toric conifold
+python -m conformalmanifold --toric "Y(5,2)"
+python -m conformalmanifold --list-toric
+```
+
+### The dimension, two ways
+
+For each geometry the conformal-manifold dimension is computed **two independent
+ways**, and the test-suite asserts they agree:
+
+1. **Field theory (authoritative).** Leigh–Strassler / NSVZ marginal-coupling
+   counting written directly on the quiver,
+   ```
+   dim_C M_conf = (n_gauge + n_W) − rank(M),
+   ```
+   where `M` is the incidence matrix of the linearised β-function conditions
+   (one row per gauge node + one per superpotential term; one column per field;
+   entry `1` iff the field touches that node / appears in that term). This is the
+   same count `conformal.py` performs for the orbifolds, now on a general quiver.
+
+2. **Geometry (closed form).** The number of boundary lattice points of the
+   toric diagram, minus one,
+   ```
+   dim_C M_conf = B − 1,
+   ```
+   where `B` is the number of external legs of the `(p,q)` 5-brane web dual to
+   the toric diagram. For `C³/Z_K(a,b,c)` the triangle has
+   `B = gcd(K,a) + gcd(K,b) + gcd(K,c)`, so `B − 1` reproduces the orbifold
+   character formula `Σ_g fix_Q(g) − 1` exactly — the toric statement *contains*
+   the orbifold one.
+
+`Y^{p,q}` and the smooth `L^{a,b,c}` whose toric quadrilateral has primitive
+edges (`B = 4`) give `dim = 3`; geometries with longer boundaries give more.
+
+### Database
+
+`build_toric_database` writes a parallel `toric_quivers` table (one row per
+labelled geometry: quiver sizes, `dim_conf`, the geometric `B − 1` cross-check,
+boundary/interior lattice-point counts, normalized area, edge lengths, and the
+full arrows + superpotential as JSON):
+
+```python
+from conformalmanifold.database import build_toric_database
+from conformalmanifold.toric import default_toric_library
+build_toric_database(default_toric_library(), "quivers.db")
+```
+
+`python -m conformalmanifold.database quivers.db` builds **both** the orbifold
+`quivers` table and the `toric_quivers` table in one shot.
+
+### Excluded: non-isolated singularities
+
+The library is restricted to **isolated** toric CY3 singularities (plus smooth
+`C³`), where the field-theory count and the geometric `B − 1` closed form agree.
+Non-isolated toric singularities are deliberately excluded — their `N=2` symmetry
+enhancement breaks that identity:
+
+- `C²/Z_n × C` (the `A_{n-1}` necklace, a line of `A`-singularities): `dim = n+1`,
+  which disagrees with the naive `N=1` incidence count.
+- `SPP`, `xy = z w²` (a line of `A_1` singularities).
+
+The `C²/Γ × C` orbifolds are instead handled by the `C²/Γ × C` branch of the
+orbifold pipeline, via the character formula.
+
 ## Scope / caveats
 
 - The closed form is for a **faithful** Γ (a genuine SU(3) subgroup), which
