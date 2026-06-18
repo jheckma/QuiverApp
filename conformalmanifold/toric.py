@@ -154,6 +154,111 @@ def dim_from_polygon(hull):
     return len(boundary_lattice_points(hull)) - 1
 
 
+def pq_web(hull):
+    """The (p,q) 5-brane web dual to the toric diagram `hull` (CCW vertices).
+
+    Each boundary edge of the polygon maps to a bundle of external legs of the
+    web, perpendicular to that edge.  An edge of primitive direction (dx,dy) and
+    lattice length g = gcd carries g external legs, each of (p,q) charge equal to
+    the OUTWARD primitive normal (dy, -dx) (for a CCW polygon the interior is on
+    the left, so the outward normal is the edge direction rotated by -90 deg).
+
+    Returns a list of legs, one per primitive boundary segment:
+        {"pq": [p, q], "base": [x, y], "edge": i}
+    where `base` is the lattice midpoint of that primitive segment.  The legs sum
+    to zero (5-brane charge conservation), since the edge vectors telescope."""
+    legs = []
+    n = len(hull)
+    for i in range(n):
+        a = hull[i]
+        b = hull[(i + 1) % n]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        g = gcd(abs(dx), abs(dy)) or 1
+        ux, uy = dx // g, dy // g            # primitive edge direction
+        pq = [uy, -ux]                       # outward normal (CCW) = leg charge
+        for t in range(g):
+            mx = a[0] + ux * t + ux / 2.0
+            my = a[1] + uy * t + uy / 2.0
+            legs.append({"pq": pq, "base": [mx, my], "edge": i})
+    return legs
+
+
+# ----------------------------------------------------------------------------
+# exact GL(2,Z) + translation equivalence of two convex lattice polygons
+# (so a user-drawn toric diagram can be identified with a named geometry)
+# ----------------------------------------------------------------------------
+def gl2z_equiv(P, Q):
+    """True iff convex lattice polygons P, Q (CCW vertex lists) are related by an
+    affine unimodular map (M in GL(2,Z), det +-1, plus integer translation).
+    Tries every dihedral alignment and solves for M from three vertices."""
+    from fractions import Fraction as Fr
+    P = convex_hull(P)
+    Q = convex_hull(Q)
+    if len(P) != len(Q) or len(P) < 3:
+        return len(P) == len(Q) and P == Q
+    n = len(P)
+
+    def inv2(m):
+        a, b, c, d = m
+        det = a * d - b * c
+        if det == 0:
+            return None
+        return (Fr(d, det), Fr(-b, det), Fr(-c, det), Fr(a, det))
+
+    p1 = (P[1][0] - P[0][0], P[1][1] - P[0][1])
+    p2 = (P[2][0] - P[0][0], P[2][1] - P[0][1])
+    Bpinv = inv2((p1[0], p2[0], p1[1], p2[1]))
+    if Bpinv is None:
+        return False
+    for shift in range(n):
+        for refl in (1, -1):
+            Qv = [Q[(shift + (i if refl > 0 else -i)) % n] for i in range(n)]
+            q1 = (Qv[1][0] - Qv[0][0], Qv[1][1] - Qv[0][1])
+            q2 = (Qv[2][0] - Qv[0][0], Qv[2][1] - Qv[0][1])
+            Bq = (q1[0], q2[0], q1[1], q2[1])
+            M = (Bq[0] * Bpinv[0] + Bq[1] * Bpinv[2],
+                 Bq[0] * Bpinv[1] + Bq[1] * Bpinv[3],
+                 Bq[2] * Bpinv[0] + Bq[3] * Bpinv[2],
+                 Bq[2] * Bpinv[1] + Bq[3] * Bpinv[3])
+            if any(x.denominator != 1 for x in M):
+                continue
+            if (M[0] * M[3] - M[1] * M[2]) not in (1, -1):
+                continue
+            ok = True
+            for i in range(n):
+                d = (P[i][0] - P[0][0], P[i][1] - P[0][1])
+                im = (M[0] * d[0] + M[1] * d[1] + Qv[0][0],
+                      M[2] * d[0] + M[3] * d[1] + Qv[0][1])
+                if (im[0], im[1]) != (Qv[i][0], Qv[i][1]):
+                    ok = False
+                    break
+            if ok:
+                return True
+    return False
+
+
+def identify_toric(vertices):
+    """Identify a user-drawn toric diagram with a built-in named geometry.
+
+    Returns a `ToricQuiver` (if the geometry has an explicit built-in quiver) or
+    a `ToricDiagram` (named but quiver-only-by-diagram), matched up to GL(2,Z) +
+    translation; or None if it matches nothing in the library (still a valid
+    toric CY3 -- the caller reports its invariants from the polygon directly)."""
+    hull = convex_hull(vertices)
+    if len(hull) < 3:
+        return None
+    sig = polygon_signature(hull)
+    # explicit-quiver geometries first (richer output), then diagram-only.
+    for cand in default_toric_library():
+        if cand.diagram and polygon_signature(convex_hull(cand.diagram)) == sig \
+                and gl2z_equiv(hull, cand.diagram):
+            return cand
+    for cand in default_toric_diagram_library():
+        if polygon_signature(cand.hull()) == sig and gl2z_equiv(hull, cand.hull()):
+            return cand
+    return None
+
+
 # ===========================================================================
 # Exact integer rank (fraction-free is overkill; rationals are plenty and exact)
 # ===========================================================================
@@ -264,6 +369,15 @@ class ToricQuiver:
 
     def signature(self):
         return polygon_signature(convex_hull(self.diagram)) if self.diagram else None
+
+    def adjacency_matrix(self):
+        """A[i][j] = number of arrows from node i to node j (nodes in order)."""
+        idx = {n: i for i, n in enumerate(self.nodes)}
+        N = len(self.nodes)
+        A = [[0] * N for _ in range(N)]
+        for (s, t) in self.arrows.values():
+            A[idx[s]][idx[t]] += 1
+        return A
 
     # ---- consistency ------------------------------------------------------
     def validate(self) -> list[str]:
