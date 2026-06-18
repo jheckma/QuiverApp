@@ -261,19 +261,23 @@ build_toric_database(default_toric_library(), "quivers.db")
 build_toric_diagram_database(default_toric_diagram_library(), "quivers.db")
 ```
 
-### Excluded: non-isolated singularities
+### Non-isolated singularities
 
-The library is restricted to **isolated** toric CY3 singularities (plus smooth
-`C³`), where the field-theory count and the geometric `B − 1` closed form agree.
-Non-isolated toric singularities are deliberately excluded — their `N=2` symmetry
-enhancement breaks that identity:
+The **explicit-quiver** library is restricted to **isolated** toric CY3 (plus
+smooth `C³`), where the field-theory count and the geometric `B − 1` closed form
+agree — the tests assert `LS == B − 1` there. Two non-isolated cases are
+deliberately kept out of the *explicit-quiver* library, because their `N=2`
+symmetry enhancement breaks that identity:
 
 - `C²/Z_n × C` (the `A_{n-1}` necklace, a line of `A`-singularities): `dim = n+1`,
-  which disagrees with the naive `N=1` incidence count.
+  which disagrees with the `N=1` incidence count `n`.
 - `SPP`, `xy = z w²` (a line of `A_1` singularities).
 
-The `C²/Γ × C` orbifolds are instead handled by the `C²/Γ × C` branch of the
-orbifold pipeline, via the character formula.
+The **diagram-only** catalog is not so restricted: it does include non-isolated
+geometries (e.g. some `C³/(Z_n×Z_m)`), where only the geometric `dim = B − 1` is
+reported and no field-theory `LS` cross-check is asserted — so no false identity
+is claimed. The `C²/Γ × C` orbifolds are also covered by the `C²/Γ × C` branch of
+the orbifold pipeline, via the character formula.
 
 ## Scope / caveats
 

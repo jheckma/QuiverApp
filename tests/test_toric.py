@@ -203,3 +203,25 @@ def test_from_diagram_arbitrary():
                                       (0, -1), (1, -1)])
     assert d.dim_conf() == 5
     assert d.num_gauge_groups == 6
+
+
+@pytest.mark.parametrize("n,m", [(2, 2), (2, 3), (3, 3), (2, 4), (3, 4), (4, 6)])
+def test_znm_diagram_matches_character_sum(n, m):
+    """The diagram-only C^3/(Z_n x Z_m) dim = B - 1 equals the *independent*
+    orbifold character-formula count sum_g fix_Q(g) - 1, even though some of
+    these are non-isolated (so no LS cross-check is asserted for them).
+
+    Group = Z_n x Z_m acting on C^3 by the CY generators
+        g1 = diag(w_n, w_n^{-1}, 1),  g2 = diag(1, w_m, w_m^{-1}),
+    fix_Q(g) = # of unit eigenvalues of g on C^3.
+    """
+    import cmath
+    S = 0
+    for a in range(n):
+        for b in range(m):
+            d0 = cmath.exp(2j * cmath.pi * a / n)                 # w_n^a
+            d1 = cmath.exp(2j * cmath.pi * (-a / n + b / m))       # w_n^-a w_m^b
+            d2 = cmath.exp(2j * cmath.pi * (-b / m))               # w_m^-b
+            S += sum(1 for z in (d0, d1, d2) if abs(z - 1) < 1e-9)
+    char_dim = S - 1
+    assert T.orbifold_znm_diagram(n, m).dim_conf() == char_dim

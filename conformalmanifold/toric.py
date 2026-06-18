@@ -333,14 +333,18 @@ class ToricQuiver:
 #   dP0                del Pezzo 0 = C^3/Z_3(1,1,1) = C(P^2)            dim 2
 #   dP1                del Pezzo 1 = Y^{2,1}                            dim 3
 #
-# The library is restricted to *isolated* toric CY3 singularities (plus smooth
-# C^3), where the field-theory count and the geometric B-1 closed form agree
-# exactly.  NON-ISOLATED toric singularities are excluded because their N=2
-# symmetry enhancement breaks that identity:
+# The *explicit-quiver* library (ToricQuiver, below) is restricted to ISOLATED
+# toric CY3 (plus smooth C^3), where the field-theory count and the geometric
+# B-1 closed form agree exactly -- the tests assert LS == B-1 there.  Two
+# NON-ISOLATED cases are deliberately kept out of the explicit-quiver library
+# because their N=2 symmetry enhancement breaks that identity:
 #   * A_{n-1} = C^2/Z_n x C   (line of A-singularities) -- dim = n+1 != incidence
 #   * SPP, xy = z w^2         (line of A_1 singularities)
-# The C^2/Gamma x C orbifolds are instead handled by the main orbifold pipeline
-# via the character formula.
+# (The C^2/Gamma x C orbifolds are handled by the main orbifold pipeline via the
+# character formula.)  The diagram-only catalog (ToricDiagram, further below) is
+# NOT so restricted: it includes non-isolated geometries too (e.g. some
+# C^3/(Z_n x Z_m)), where only the geometric dim = B-1 is reported -- no LS
+# cross-check is asserted, so no false field-theory identity is claimed.
 # ---------------------------------------------------------------------------
 
 def c3() -> ToricQuiver:
