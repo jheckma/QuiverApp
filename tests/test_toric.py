@@ -152,3 +152,54 @@ def test_make_toric_dispatch():
         T.make_toric("not-a-geometry")
     with pytest.raises(ValueError):
         T.ypq(3, 3)          # need q < p
+
+
+# --------------------------------------------------------------------------
+# diagram-only catalog: every entry has a consistent toric diagram
+# --------------------------------------------------------------------------
+@pytest.mark.parametrize("d", T.default_toric_diagram_library(), ids=lambda d: d.label)
+def test_diagram_library_consistent(d):
+    area2, B, I, _ = d.signature()
+    assert area2 == 2 * I + B - 2                 # Pick's theorem
+    assert d.dim_conf() == B - 1                  # dim = B - 1
+    assert d.num_gauge_groups == area2 >= 1
+    assert d.dim_conf() >= 1
+
+
+@pytest.mark.parametrize("n,expect_gauge,expect_dim", [
+    (0, 3, 2), (1, 4, 3), (2, 5, 4), (3, 6, 5),
+])
+def test_del_pezzo_series(n, expect_gauge, expect_dim):
+    d = T.del_pezzo_diagram(n)
+    assert d.num_gauge_groups == expect_gauge      # dP_n has n+3 gauge groups
+    assert d.dim_conf() == expect_dim              # dim = n+2
+    assert d.interior_points() == 1                # reflexive: one interior point
+
+
+@pytest.mark.parametrize("n,m", [(2, 2), (2, 3), (3, 3), (2, 4), (3, 5), (4, 6)])
+def test_znm_orbifold_diagram(n, m):
+    from math import gcd
+    d = T.orbifold_znm_diagram(n, m)
+    assert d.num_gauge_groups == n * m             # |Z_n x Z_m|
+    assert d.dim_conf() == n + m + gcd(n, m) - 1   # B - 1
+
+
+def test_dp1_diagram_matches_y21_quiver():
+    # dP1 = Y^{2,1}: the diagram-only dP1 and the explicit Y(2,1) quiver agree
+    assert T.del_pezzo_diagram(1).dim_conf() == T.ypq(2, 1).dim_conf_ls()
+    assert T.del_pezzo_diagram(1).signature() == T.ypq(2, 1).signature()
+
+
+def test_general_labc_diagram():
+    # general (non-Y) L^{a,b,c} dispatches to a ToricDiagram with dim = B-1
+    d = T.make_toric("L(2,5,3)")
+    assert isinstance(d, T.ToricDiagram)
+    assert d.dim_conf() == d.boundary_points() - 1
+
+
+def test_from_diagram_arbitrary():
+    # any lattice polygon -> a usable ToricDiagram
+    d = T.from_diagram("custom-hex", [(1, 0), (0, 1), (-1, 1), (-1, 0),
+                                      (0, -1), (1, -1)])
+    assert d.dim_conf() == 5
+    assert d.num_gauge_groups == 6

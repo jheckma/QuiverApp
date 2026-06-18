@@ -2,9 +2,11 @@
 
 Companion to the C^3/Gamma orbifold pipeline (`pipeline.run`).  Where that module
 covers the *orbifold* singularities C^3/Gamma, this one covers the broader class
-of **toric** Calabi-Yau three-fold singularities -- the conifold, the
-suspended pinch point, the Y^{p,q} and L^{a,b,c} families, the del Pezzo cones,
-and (as a consistency overlap) the abelian orbifolds C^3/Z_K.
+of **isolated toric** Calabi-Yau three-fold singularities -- the conifold, the
+Y^{p,q} and L^{a,b,c} families, the del Pezzo cones, and (as a consistency
+overlap) the abelian orbifolds C^3/Z_K.  Any other toric singularity can be
+added by its toric diagram via `from_diagram` / `ToricDiagram` (dimension and
+gauge-group count from the polygon alone, no hand-built tiling required).
 
 Each geometry is specified by
 
@@ -14,11 +16,11 @@ Each geometry is specified by
   * a **quiver gauge theory**: gauge nodes (one U(N d_i) per node), oriented
     bifundamental arrows, and a *toric* (two-term) superpotential.
 
-The dimension of the conformal manifold is computed two independent ways and the
-library tests assert they agree:
+The dimension of the conformal manifold is given as **two formulations of the
+same toric count** (the library tests assert they agree):
 
-  (1) **Field theory (authoritative).**  Leigh-Strassler / NSVZ marginal-coupling
-      counting on the quiver:
+  (1) **Field theory.**  Leigh-Strassler / NSVZ marginal-coupling counting on
+      the quiver, using only the *toric* (two-term) superpotential couplings:
 
           dim_C M_conf = (n_gauge + n_W) - rank(M)
 
@@ -28,8 +30,8 @@ library tests assert they agree:
       This is exactly the count `pipeline`/`conformal` perform for the orbifolds,
       written directly on the quiver.
 
-  (2) **Geometry (closed form).**  The number of boundary lattice points of the
-      toric diagram, minus one:
+  (2) **Geometry.**  The number of boundary lattice points of the toric diagram,
+      minus one:
 
           dim_C M_conf = B - 1,        B = # lattice points on the polygon boundary
 
@@ -38,7 +40,22 @@ library tests assert they agree:
       B = gcd(K,a) + gcd(K,b) + gcd(K,c), so B - 1 reproduces the orbifold
       character formula `sum_g fix_Q(g) - 1` (see `conformal.py`).
 
-Both reduce to the same integer; (1) needs only the quiver, (2) only the polygon.
+(1) and (2) are two views of the *same* combinatorial quantity, not independent
+derivations: both depend only on the toric data, and where the true conformal
+manifold has extra (non-toric) marginal directions they miss them together.
+
+CONVENTION / SCOPE.  This is the conformal-manifold dimension counted in the
+gauge + *toric*-superpotential coupling space -- the "beta-deformation sector",
+the same convention the orbifold pipeline uses.  For a *generic* toric Calabi-Yau
+this is the full conformal manifold (Benvenuti-Hanany, hep-th/0502043: a general
+Y^{p,q} is 3-dimensional, matching `Y(p,q)` below).  At *symmetry-enhanced*
+special points the true conformal manifold is larger because extra, non-toric
+marginal operators open up; the two known cases here are flagged with a `note`:
+
+    * conifold = Y^{1,0}: this count gives 3, the true dimension is 5
+      (Benvenuti-Hanany) -- enhanced SU(2)xSU(2) flavour symmetry;
+    * C^3 / N=4 SYM:      this count gives 2, the true dimension is 3
+      (Leigh-Strassler tau, beta, h).
 
 Only dependency is the standard library plus numpy (already required).
 """
@@ -189,6 +206,7 @@ class ToricQuiver:
     arrows: dict
     W: list
     diagram: list = field(default_factory=list)
+    note: str = ""   # e.g. symmetry-enhancement caveat on the toric count
 
     # ---- size -------------------------------------------------------------
     @property
@@ -251,6 +269,13 @@ class ToricQuiver:
         quiver): closed superpotential loops, the toric two-term condition, and
         anomaly cancellation (in-degree == out-degree, all ranks 1)."""
         errs = []
+        # every superpotential field must be an actual arrow
+        for sign, cyc in self.W:
+            for f in cyc:
+                if f not in self.arrows:
+                    errs.append(f"W term references unknown field {f!r}: {cyc}")
+        if errs:
+            return errs
         # every W term is a closed oriented loop
         for sign, cyc in self.W:
             ok = all(self.arrows[cyc[i]][1] == self.arrows[cyc[(i + 1) % len(cyc)]][0]
@@ -292,6 +317,8 @@ class ToricQuiver:
         lines.append(f"  dim_C M_conf = (n_G + n_W) - rank(M) = "
                      f"({self.num_nodes} + {self.num_w_terms}) - "
                      f"{_rank_exact(self.incidence_matrix())} = {d}  (field theory)")
+        if self.note:
+            lines.append(f"  note: {self.note}")
         return "\n".join(lines)
 
 
@@ -322,7 +349,9 @@ def c3() -> ToricQuiver:
     W = [(+1, ("X", "Y", "Z")), (-1, ("X", "Z", "Y"))]
     diagram = [(0, 0), (1, 0), (0, 1)]
     return ToricQuiver("C3", "base", "Flat C^3 (N=4 SYM as N=1).",
-                       [0], arrows, W, diagram)
+                       [0], arrows, W, diagram,
+                       note="toric/beta-sector count = 2; the full N=4 conformal "
+                            "manifold is 3 (Leigh-Strassler tau, beta, h).")
 
 
 def conifold() -> ToricQuiver:
@@ -331,8 +360,11 @@ def conifold() -> ToricQuiver:
     W = [(+1, ("A1", "B1", "A2", "B2")), (-1, ("A1", "B2", "A2", "B1"))]
     diagram = [(0, 0), (1, 0), (1, 1), (0, 1)]
     return ToricQuiver("conifold", "conifold",
-                       "Conifold cone over T^{1,1} (Klebanov-Witten).",
-                       [0, 1], arrows, W, diagram)
+                       "Conifold cone over T^{1,1} (Klebanov-Witten); = Y^{1,0}.",
+                       [0, 1], arrows, W, diagram,
+                       note="toric/beta-sector count = 3; the full conifold "
+                            "conformal manifold is 5 (Benvenuti-Hanany, "
+                            "hep-th/0502043) due to enhanced SU(2)xSU(2).")
 
 
 def _ypq_arrangement(p: int, q: int):
@@ -472,6 +504,133 @@ def del_pezzo(n: int) -> ToricQuiver:
     raise ValueError("del_pezzo: only n = 0, 1 are provided as explicit quivers")
 
 
+# ===========================================================================
+# Toric geometries specified by their toric diagram ALONE (no hand-built tiling)
+# ===========================================================================
+# There are infinitely many toric Calabi-Yau three-folds -- one per convex
+# lattice polygon.  Hand-building a consistent brane tiling for each is a project
+# in itself, but the two invariants this package reports follow from the toric
+# diagram directly:
+#
+#     dim_C M_conf      = B - 1                (boundary lattice points - 1)
+#     # gauge groups    = 2 * area             (normalized area of the polygon)
+#
+# `ToricDiagram` exposes exactly those, so ANY toric geometry can be catalogued
+# by its polygon -- the del Pezzo / Hirzebruch cones, the C^3/(Z_n x Z_m)
+# orbifolds, the full L^{a,b,c} family, the 16 reflexive polygons, etc.
+# ---------------------------------------------------------------------------
+@dataclass
+class ToricDiagram:
+    """A toric CY3 given by its toric diagram (convex lattice polygon) alone.
+
+    Reports the conformal-manifold dimension (B-1) and the gauge-group count
+    (2*area) without an explicit quiver.  Same `dim_C M_conf` convention as
+    `ToricQuiver` (toric / beta-deformation sector)."""
+    label: str
+    family: str
+    description: str
+    vertices: list
+    note: str = ""
+
+    def hull(self):
+        return convex_hull(self.vertices)
+
+    @property
+    def num_gauge_groups(self) -> int:
+        return normalized_area(self.hull())
+
+    def boundary_points(self) -> int:
+        return len(boundary_lattice_points(self.hull()))
+
+    def interior_points(self) -> int:
+        return interior_lattice_points_count(self.hull())
+
+    def dim_conf(self) -> int:
+        """dim_C M_conf = B - 1."""
+        return dim_from_polygon(self.hull())
+
+    def signature(self):
+        return polygon_signature(self.hull())
+
+    def __str__(self) -> str:
+        h = self.hull()
+        area2, B, I, edges = polygon_signature(h)
+        lines = [
+            f"Toric CY3  {self.label}   [{self.family}]  (diagram only)",
+            f"  {self.description}",
+            f"  toric diagram: vertices {h}",
+            f"    signature (2*area, B_boundary, I_interior, edges) "
+            f"= ({area2}, {B}, {I}, {list(edges)})",
+            f"  # gauge groups = 2*area = {area2}",
+            f"  dim_C M_conf = B - 1 = {self.dim_conf()}",
+        ]
+        if self.note:
+            lines.append(f"  note: {self.note}")
+        return "\n".join(lines)
+
+
+def from_diagram(label, vertices, family="custom", description="", note=""):
+    """Build a ToricDiagram from any lattice-polygon vertex list."""
+    return ToricDiagram(label, family, description or f"Toric CY3 {label}.",
+                        list(vertices), note)
+
+
+# del Pezzo / Hirzebruch cones (reflexive polygons, one interior point) --------
+_DEL_PEZZO_DIAGRAMS = {
+    0: [(1, 0), (0, 1), (-1, -1)],                                  # P^2
+    1: [(1, 0), (0, 1), (-1, -1), (0, -1)],                         # dP1 = F1 = Y^{2,1}
+    2: [(1, 0), (0, 1), (-1, 0), (-1, -1), (0, -1)],                # dP2
+    3: [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)],        # dP3
+}
+
+
+def del_pezzo_diagram(n: int) -> ToricDiagram:
+    """Toric diagram of the cone over del Pezzo n (n=0..3): n+3 gauge groups,
+    dim_C M_conf = n+2."""
+    if n not in _DEL_PEZZO_DIAGRAMS:
+        raise ValueError("del_pezzo_diagram: n must be 0, 1, 2 or 3")
+    return ToricDiagram(f"dP{n}", "del Pezzo",
+                        f"Cone over the del Pezzo surface dP{n}.",
+                        _DEL_PEZZO_DIAGRAMS[n])
+
+
+def f0_diagram() -> ToricDiagram:
+    """Cone over P^1 x P^1 (Hirzebruch F0): 4 gauge groups, dim 3."""
+    return ToricDiagram("F0", "Hirzebruch", "Cone over P^1 x P^1 (F0).",
+                        [(1, 0), (-1, 0), (0, 1), (0, -1)])
+
+
+def labc_diagram(a: int, b: int, c: int) -> ToricDiagram:
+    """Toric diagram of the L^{a,b,c} cone (needs gcd(b,c)=1)."""
+    return ToricDiagram(f"L({a},{b},{c})", "L^{a,b,c}",
+                        f"Cone over L^{{{a},{b},{c}}}.",
+                        labc_polygon(a, b, c))
+
+
+def orbifold_znm_diagram(n: int, m: int) -> ToricDiagram:
+    """C^3/(Z_n x Z_m) abelian orbifold: the n*m-area triangle with vertices
+    (0,0),(n,0),(0,m).  # gauge groups = n*m, dim_C M_conf = n+m+gcd(n,m)-1."""
+    return ToricDiagram(f"Z({n},{m})", "C^3/(Z_n x Z_m)",
+                        f"C^3/(Z_{n} x Z_{m}) abelian orbifold.",
+                        [(0, 0), (n, 0), (0, m)])
+
+
+def default_toric_diagram_library():
+    """A broad spread of named toric CY3 catalogued by diagram (no hand tiling).
+
+    Demonstrates the reach beyond Y^{p,q}/L^{a,b,c}: the del Pezzo and Hirzebruch
+    cones, the C^3/(Z_n x Z_m) orbifold family, and a slice of general L^{a,b,c}.
+    """
+    out = [del_pezzo_diagram(n) for n in range(4)]
+    out.append(f0_diagram())
+    out += [orbifold_znm_diagram(n, m)
+            for (n, m) in [(2, 2), (2, 3), (3, 3), (2, 4), (3, 4)]]
+    out += [labc_diagram(a, b, c)
+            for (a, b, c) in [(1, 5, 2), (1, 7, 3), (2, 3, 1), (1, 9, 4),
+                              (2, 5, 3), (1, 11, 5)]]
+    return out
+
+
 # ---------------------------------------------------------------------------
 # registry + dispatch
 # ---------------------------------------------------------------------------
@@ -483,30 +642,44 @@ _PRESETS = {
     "L(1,5,2)": l152,
 }
 
+_DIAGRAM_PRESETS = {
+    "dP2": lambda: del_pezzo_diagram(2),
+    "dP3": lambda: del_pezzo_diagram(3),
+    "F0": f0_diagram,
+}
 
-def make_toric(label: str) -> ToricQuiver:
-    """Build a ToricQuiver from a label string.
 
-    Presets: C3, conifold, dP0, dP1, L(1,5,2).
-    Parametric: Y(p,q)  e.g. 'Y(3,1)'.
+def make_toric(label: str):
+    """Build a toric geometry from a label string.
+
+    Returns a `ToricQuiver` (explicit quiver) where one is built in, otherwise a
+    `ToricDiagram` (toric diagram + dimension only).  Both expose `dim_conf()`.
+
+    Explicit quiver:  C3, conifold, dP0, dP1, L(1,5,2), Y(p,q)  e.g. 'Y(3,1)'.
+    Diagram only:     dP2, dP3, F0, Z(n,m)  e.g. 'Z(2,3)',  L(a,b,c) general,
+                      or any polygon via `from_diagram`.
     """
     s = label.strip()
     if s in _PRESETS:
         return _PRESETS[s]()
+    if s in _DIAGRAM_PRESETS:
+        return _DIAGRAM_PRESETS[s]()
     if s.startswith("Y(") and s.endswith(")"):
         p, q = (int(x) for x in s[2:-1].split(","))
         return ypq(p, q)
+    if s.startswith("Z(") and s.endswith(")"):
+        n, m = (int(x) for x in s[2:-1].split(","))
+        return orbifold_znm_diagram(n, m)
     if s.startswith("L(") and s.endswith(")"):
         a, b, c = (int(x) for x in s[2:-1].split(","))
         if (a, b, c) == (1, 5, 2):
-            return l152()
-        raise ValueError(f"only L(1,5,2) has an explicit quiver; {label} has a "
-                         f"toric diagram via labc_polygon but no built-in quiver")
+            return l152()           # explicit quiver available
+        return labc_diagram(a, b, c)  # general L: diagram + dimension only
     raise ValueError(f"unknown toric label: {label!r}")
 
 
 def default_toric_library():
-    """A representative spread of named toric CY3 for the database / sweeps."""
+    """The named toric CY3 with an explicit, validated quiver (LS == B-1)."""
     out = [c3(), conifold(), del_pezzo(0), del_pezzo(1), l152()]
     out += [ypq(p, q) for (p, q) in [(2, 1), (3, 1), (3, 2), (4, 1), (4, 3),
                                      (5, 2), (6, 5), (7, 3)]]
@@ -514,5 +687,6 @@ def default_toric_library():
 
 
 def list_toric():
-    """Labels of the built-in toric library (for the CLI --list-toric)."""
-    return [t.label for t in default_toric_library()]
+    """Labels of the built-in toric library (explicit quivers + diagram-only)."""
+    return ([t.label for t in default_toric_library()]
+            + [t.label for t in default_toric_diagram_library()])
