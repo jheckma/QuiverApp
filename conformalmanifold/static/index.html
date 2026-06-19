@@ -113,9 +113,10 @@
           border-radius:7px;padding:2px 8px;margin:2px 4px 0 0;font-size:12.5px;
           font-family:ui-monospace,Consolas,monospace}
   /* triangulation + dual web */
-  .triedge{stroke:#3f4b63;stroke-width:1.4}
-  .triedge.flip{stroke:var(--accent2);stroke-width:1.8;stroke-dasharray:5 4;cursor:pointer}
-  .triehit{stroke:transparent;stroke-width:12;cursor:pointer}
+  .triedge{stroke:#c3d2f5;stroke-width:1.6}                 /* internal edge (light) */
+  .triedge.bdy{stroke:#5b7fd6;stroke-width:3}               /* polygon boundary (deep blue) */
+  .triedge.flip{stroke:var(--accent2);stroke-width:2.2;stroke-dasharray:6 4;cursor:pointer}
+  .triehit{stroke:transparent;stroke-width:14;cursor:pointer}
   .bpt{fill:var(--accent2)}          /* boundary lattice point */
   .ipt{fill:var(--warn)}             /* interior lattice point */
   .wjunc{fill:var(--accent);stroke:#0b1020;stroke-width:1}
@@ -471,14 +472,27 @@ $("go").addEventListener("click", compute);
 loadGroups().then(compute);
 
 /* ===================== Toric (p,q)-web builder ===================== */
-const T_RANGE = 5;                 // lattice [-5,5]^2
-const T_STEP = 420/(2*T_RANGE+2);  // px per lattice unit
-const T_CX = 210, T_CY = 210;
 const toricPts = new Set(["0,0","1,0","1,1","0,1"]);   // default: conifold
 let currentTri = null;             // current triangulation (index-triples)
 
-const sx = gx => T_CX + gx*T_STEP;
-const sy = gy => T_CY - gy*T_STEP;
+// the lattice window auto-fits the current diagram (+ a clickable margin) so the
+// diagram fills the panel instead of floating in a fixed grid.
+let tView = {lo:[-3,-3], hi:[3,3]}, TM = {sc:1, ox:0, oy:0};
+function syncView(){
+  const ps=[...toricPts].map(s=>s.split(",").map(Number));
+  if(ps.length){
+    const M=1;                     // clickable lattice margin around the diagram
+    let mnx=Math.min(...ps.map(p=>p[0])), mxx=Math.max(...ps.map(p=>p[0]));
+    let mny=Math.min(...ps.map(p=>p[1])), mxy=Math.max(...ps.map(p=>p[1]));
+    tView={lo:[Math.floor(mnx-M),Math.floor(mny-M)], hi:[Math.ceil(mxx+M),Math.ceil(mxy+M)]};
+  } else tView={lo:[-3,-3], hi:[3,3]};
+  const W=420,H=420,pad=26;
+  const spanx=tView.hi[0]-tView.lo[0]||1, spany=tView.hi[1]-tView.lo[1]||1;
+  const sc=Math.min((W-2*pad)/spanx,(H-2*pad)/spany);
+  TM={sc, ox:(W-spanx*sc)/2, oy:(H-spany*sc)/2};
+}
+const sx = gx => TM.ox + (gx-tView.lo[0])*TM.sc;
+const sy = gy => 420 - (TM.oy + (gy-tView.lo[1])*TM.sc);
 const gKey = (x,y) => `${x},${y}`;
 const eKey = (a,b) => a<b ? `${a}_${b}` : `${b}_${a}`;
 
@@ -498,21 +512,22 @@ function tEmpty(msg){
   $("grid").innerHTML = emptyGrid(); $("t-web").innerHTML = "";
 }
 
-function baseGrid(){               // faint lattice + axes
+function baseGrid(){               // faint lattice + axes over the current window
   let s="";
-  for(let g=-T_RANGE; g<=T_RANGE; g++){
-    s+=`<line class="${g===0?'gridaxis':'gridline'}" x1="${sx(-T_RANGE)}" y1="${sy(g)}" x2="${sx(T_RANGE)}" y2="${sy(g)}"/>`;
-    s+=`<line class="${g===0?'gridaxis':'gridline'}" x1="${sx(g)}" y1="${sy(-T_RANGE)}" x2="${sx(g)}" y2="${sy(T_RANGE)}"/>`;
-  }
+  for(let gy=tView.lo[1]; gy<=tView.hi[1]; gy++)
+    s+=`<line class="${gy===0?'gridaxis':'gridline'}" x1="${sx(tView.lo[0])}" y1="${sy(gy)}" x2="${sx(tView.hi[0])}" y2="${sy(gy)}"/>`;
+  for(let gx=tView.lo[0]; gx<=tView.hi[0]; gx++)
+    s+=`<line class="${gx===0?'gridaxis':'gridline'}" x1="${sx(gx)}" y1="${sy(tView.lo[1])}" x2="${sx(gx)}" y2="${sy(tView.hi[1])}"/>`;
   return s;
 }
 
 // the interactive grid before a diagram exists: clickable dots, selected ones lit
 function emptyGrid(){
+  syncView();
   let s = baseGrid();
-  for(let gx=-T_RANGE; gx<=T_RANGE; gx++) for(let gy=-T_RANGE; gy<=T_RANGE; gy++){
+  for(let gx=tView.lo[0]; gx<=tView.hi[0]; gx++) for(let gy=tView.lo[1]; gy<=tView.hi[1]; gy++){
     const sel = toricPts.has(gKey(gx,gy));
-    s+=`<circle class="gridpt${sel?' sel':''}" data-gx="${gx}" data-gy="${gy}" cx="${sx(gx)}" cy="${sy(gy)}" r="${sel?5.5:3.2}"/>`;
+    s+=`<circle class="gridpt${sel?' sel':''}" data-gx="${gx}" data-gy="${gy}" cx="${sx(gx)}" cy="${sy(gy)}" r="${sel?6:3.6}"/>`;
   }
   return s;
 }
@@ -536,34 +551,37 @@ async function buildToric(flopEdge){
 
 function renderGrid(d){
   const res=d.resolution, lat=res.lattice_points, hull=d.diagram.hull;
+  syncView();
   let s = baseGrid();
   // toric diagram (filled hull)
   s+=`<polygon class="toricfill" points="${hull.map(p=>`${sx(p[0])},${sy(p[1])}`).join(" ")}"/>`;
-  // internal triangulation edges (flippable ones highlighted + clickable)
+  // draw EVERY triangulation edge: boundary edges + internal edges (flippable
+  // internal ones highlighted + clickable). Counting owners tells them apart.
   const ecount={};
   for(const [i,j,k] of res.triangulation)
     for(const [a,b] of [[i,j],[j,k],[k,i]]){ const key=eKey(a,b); ecount[key]=(ecount[key]||0)+1; }
   const flipSet=new Set(res.flippable_edges.map(e=>eKey(e[0],e[1])));
   for(const key in ecount){
-    if(ecount[key]!==2) continue;                 // skip boundary (hull outline shows them)
     const [a,b]=key.split("_").map(Number), A=lat[a], B=lat[b];
     const x1=sx(A[0]),y1=sy(A[1]),x2=sx(B[0]),y2=sy(B[1]);
-    if(flipSet.has(key)){
+    if(ecount[key]===1){                            // polygon-boundary edge
+      s+=`<line class="triedge bdy" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+    } else if(flipSet.has(key)){                    // internal, flippable
       s+=`<line class="triedge flip" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
       s+=`<line class="triehit" data-edge="${a},${b}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
-    } else {
+    } else {                                         // internal, fixed
       s+=`<line class="triedge" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
     }
   }
   // lattice points: resolution points (boundary/interior) prominent, others faint
   const resCls={};
   lat.forEach((p,i)=>{ resCls[gKey(p[0],p[1])] = res.boundary_flags[i] ? "bpt" : "ipt"; });
-  for(let gx=-T_RANGE; gx<=T_RANGE; gx++) for(let gy=-T_RANGE; gy<=T_RANGE; gy++){
+  for(let gx=tView.lo[0]; gx<=tView.hi[0]; gx++) for(let gy=tView.lo[1]; gy<=tView.hi[1]; gy++){
     const key=gKey(gx,gy);
     if(resCls[key])
-      s+=`<circle class="${resCls[key]}" data-gx="${gx}" data-gy="${gy}" cx="${sx(gx)}" cy="${sy(gy)}" r="5"/>`;
+      s+=`<circle class="${resCls[key]}" data-gx="${gx}" data-gy="${gy}" cx="${sx(gx)}" cy="${sy(gy)}" r="6"/>`;
     else
-      s+=`<circle class="gridpt" data-gx="${gx}" data-gy="${gy}" cx="${sx(gx)}" cy="${sy(gy)}" r="3.2"/>`;
+      s+=`<circle class="gridpt" data-gx="${gx}" data-gy="${gy}" cx="${sx(gx)}" cy="${sy(gy)}" r="3.6"/>`;
   }
   $("grid").innerHTML = s;
 }
@@ -660,6 +678,12 @@ function showTab(which){
 }
 $("tab-orb").addEventListener("click", ()=>showTab("orb"));
 $("tab-tor").addEventListener("click", ()=>showTab("tor"));
+if(location.hash === "#toric") showTab("tor");   // deep-link to the builder
+if(location.hash.startsWith("#pts=")){           // deep-link to a specific diagram
+  toricPts.clear(); currentTri=null;
+  for(const p of decodeURIComponent(location.hash.slice(5)).split(";")) if(p) toricPts.add(p.trim());
+  showTab("tor");
+}
 </script>
 </body>
 </html>
