@@ -1,0 +1,25 @@
+{
+  "name": "C3_A4",
+  "node_labels": ["n0", "n1", "n2", "n3"],
+  "ranks": [6, 2, 2, 2],
+  "arrows": [
+    {"label": "u", "source": 0, "target": 0, "r_charge": "2/3"},
+    {"label": "v", "source": 0, "target": 0, "r_charge": "2/3"},
+    {"label": "A", "source": 1, "target": 0, "r_charge": "2/3"},
+    {"label": "a", "source": 0, "target": 1, "r_charge": "2/3"},
+    {"label": "B", "source": 2, "target": 0, "r_charge": "2/3"},
+    {"label": "b", "source": 0, "target": 2, "r_charge": "2/3"},
+    {"label": "C", "source": 3, "target": 0, "r_charge": "2/3"},
+    {"label": "c", "source": 0, "target": 3, "r_charge": "2/3"}
+  ],
+  "superpotential": [
+    {"coefficient": "1", "factors": ["u", "A", "a"]},
+    {"coefficient": "1", "factors": ["u", "B", "b"]},
+    {"coefficient": "1", "factors": ["u", "C", "c"]},
+    {"coefficient": "1", "factors": ["u", "u", "u"]},
+    {"coefficient": "1", "factors": ["v", "v", "v"]},
+    {"coefficient": "1", "factors": ["v", "A", "a"]},
+    {"coefficient": "1", "factors": ["v", "B", "b"]},
+    {"coefficient": "1", "factors": ["v", "C", "c"]}
+  ]
+}

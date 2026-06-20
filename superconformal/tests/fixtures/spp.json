@@ -1,0 +1,20 @@
+{
+  "name": "SPP",
+  "node_labels": ["n1", "n2", "n3"],
+  "ranks": [2, 2, 2],
+  "arrows": [
+    {"label": "X22", "source": 1, "target": 1, "r_charge": "1/2"},
+    {"label": "X12", "source": 0, "target": 1, "r_charge": "1/2"},
+    {"label": "X21", "source": 1, "target": 0, "r_charge": "1/2"},
+    {"label": "X23", "source": 1, "target": 2, "r_charge": "1/2"},
+    {"label": "X32", "source": 2, "target": 1, "r_charge": "1/2"},
+    {"label": "X13", "source": 0, "target": 2, "r_charge": "1/2"},
+    {"label": "X31", "source": 2, "target": 0, "r_charge": "1/2"}
+  ],
+  "superpotential": [
+    {"coefficient": "1", "factors": ["X12", "X21", "X22"]},
+    {"coefficient": "-1", "factors": ["X22", "X23", "X32"]},
+    {"coefficient": "1", "factors": ["X13", "X23", "X31", "X32"]},
+    {"coefficient": "-1", "factors": ["X12", "X13", "X21", "X31"]}
+  ]
+}
