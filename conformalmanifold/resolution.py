@@ -7,20 +7,35 @@ as vertices.  Each such triangulation is a smooth toric phase; different
 triangulations are related by **flops** (swapping the diagonal of the quadri-
 lateral formed by two adjacent triangles).
 
-The dual of a triangulation is the (p,q) 5-brane web:
+The dual of a triangulation is the (p,q) 5-brane web.  It is the **tropical /
+Legendre dual** of the triangulation: lift the lattice points to a strictly
+convex height function nu whose lower hull projects to exactly this triangulation
+(a "regular" triangulation), and send each triangle T to the gradient grad(nu|_T)
+of the affine piece of the lift over T.  This junction placement makes the web a
+genuine (p,q) web:
 
-    * one trivalent **junction** per triangle (drawn at the triangle centroid --
-      a clear, never-degenerate schematic; the circumcenter gives the metrically
-      perpendicular web but collapses to a point for right-angled lattice
-      triangles such as the two halves of the conifold square, hiding the flop);
-    * one finite internal **edge** per internal triangulation edge (joining the
-      two adjacent junctions) -- so a flop visibly restructures the web;
+    * one trivalent **junction** per triangle, at grad(nu|_T);
+    * one finite internal **edge** per internal triangulation edge, joining the
+      two adjacent junctions.  Because the two affine pieces agree along the
+      shared toric edge, the segment between their gradients is **exactly
+      perpendicular** to that toric edge and carries (p,q) charge equal to the
+      edge normal -- so the legs meeting at every junction balance to zero (local
+      5-brane charge conservation), and a flop visibly restructures the web
+      (e.g. the resolved conifold's internal edge has positive length and rotates
+      by 90 degrees under its flop, instead of collapsing to a point);
     * one semi-infinite external **leg** per boundary segment, leaving the
       adjacent junction along the outward edge-normal with **exact** (p,q) charge
       equal to that normal.
 
-Everything here is exact integer arithmetic except the circumcenters (rational,
-returned as floats for drawing).  Pure stdlib (no numpy needed).
+Contrast with two simpler-but-wrong junction choices kept here only for
+reference: the **centroid** is never degenerate but its internal edges are not
+perpendicular to the toric edges (junctions do not balance); the **circumcenter**
+gives the metrically perpendicular web for the *Delaunay* phase but collapses to a
+point for cocircular quads such as the conifold square, hiding the flop.  The
+Legendre dual fixes both.
+
+Heights are computed by Motzkin relaxation (floats); junction gradients are exact
+over the CCW unimodular triangles (determinant 1).  Pure stdlib (no numpy needed).
 """
 
 from __future__ import annotations
@@ -290,18 +305,107 @@ def circumcenter(a, b, c):
 
 
 def centroid(a, b, c):
-    """Centroid of triangle a,b,c -- the web junction position used for drawing."""
+    """Centroid of triangle a,b,c -- a never-degenerate but non-perpendicular
+    junction (see module docstring); kept as a drawing fallback."""
     return [(a[0] + b[0] + c[0]) / 3.0, (a[1] + b[1] + c[1]) / 3.0]
+
+
+# ----------------------------------------------------------------------------
+# tropical / Legendre dual: strictly-convex lift -> perpendicular (p,q) web
+# ----------------------------------------------------------------------------
+def _affine_coeffs(pts, i, j, k, l):
+    """Barycentric coords (a,b,c) of point l w.r.t. the affine frame (i,j,k):
+    l == a*i + b*j + c*k with a+b+c == 1.  c<0 iff l is across edge (i,j) from k
+    (the configuration of two triangles sharing an internal edge)."""
+    xi, yi = pts[i]
+    xj, yj = pts[j]
+    xk, yk = pts[k]
+    xl, yl = pts[l]
+    det = xi * (yj - yk) - xj * (yi - yk) + xk * (yi - yj)
+    a = (xl * (yj - yk) - xj * (yl - yk) + xk * (yl - yj)) / det
+    b = (xi * (yl - yk) - xl * (yi - yk) + xk * (yi - yl)) / det
+    return a, b, 1.0 - a - b
+
+
+def convex_heights(pts, tris, margin=1.0, max_iter=20000):
+    """A strictly-convex height nu (list, one float per lattice point) whose lower
+    hull projects to exactly the triangulation `tris`.  For every internal edge
+    (i,j) with neighbour apexes k,l the lift of l must sit strictly above the
+    affine plane through the lifted (i,j,k) -- a strict linear inequality on nu.
+    Solve the system by Motzkin relaxation (projection onto each violated
+    constraint); the paraboloid lift seeds it near the Delaunay phase.  Returns
+    None if it fails to converge (a non-regular triangulation -- not produced by
+    flopping the default phase of the small toric diagrams handled here)."""
+    h = [float(x * x + y * y) for (x, y) in pts]      # paraboloid seed
+    cons = []
+    for (i, j), owners in edge_map(tris).items():
+        if len(owners) != 2:
+            continue
+        k = _apex(tris[owners[0]], i, j)
+        l = _apex(tris[owners[1]], i, j)
+        if k is None or l is None:
+            continue
+        a, b, c = _affine_coeffs(pts, i, j, k, l)     # value at l = a*hi+b*hj+c*hk
+        coeff = {}                                    # want h_l - (a hi+b hj+c hk) >= margin
+        for v, co in ((l, 1.0), (i, -a), (j, -b), (k, -c)):
+            coeff[v] = coeff.get(v, 0.0) + co
+        cons.append(coeff)
+    for _ in range(max_iter):
+        updated = False
+        for coeff in cons:
+            r = sum(co * h[v] for v, co in coeff.items())
+            if r < margin - 1e-9:
+                nn = sum(co * co for co in coeff.values())
+                step = (margin - r) / nn
+                for v, co in coeff.items():
+                    h[v] += step * co
+                updated = True
+        if not updated:
+            return h
+    return None
+
+
+def _triangle_gradient(pts, h, tri):
+    """Gradient (mx,my) of the affine interpolant of heights `h` over CCW
+    unimodular triangle `tri` -- the (p,q)-web junction for that triangle.
+    The frame determinant is +1 (CCW, area 1/2), so this is exact up to `h`."""
+    a, b, c = tri
+    x0, y0 = pts[a]
+    x1, y1 = pts[b]
+    x2, y2 = pts[c]
+    dx1, dy1, dx2, dy2 = x1 - x0, y1 - y0, x2 - x0, y2 - y0
+    det = dx1 * dy2 - dy1 * dx2                        # == 1 for CCW unimodular
+    z1, z2 = h[b] - h[a], h[c] - h[a]
+    mx = (z1 * dy2 - z2 * dy1) / det
+    my = (dx1 * z2 - dx2 * z1) / det
+    return [mx, my]
+
+
+def tropical_junctions(pts, tris):
+    """Legendre-dual junction positions (one [x,y] per triangle), or None if no
+    strictly-convex lift induces this triangulation."""
+    h = convex_heights(pts, tris)
+    if h is None:
+        return None
+    return [_triangle_gradient(pts, h, t) for t in tris]
 
 
 def dual_web(pts, tris, hull):
     """The (p,q) web dual to triangulation `tris` of polygon `hull`.
 
-    Returns {"junctions": [...], "internal_edges": [[t1,t2],...],
-             "external_legs": [{"junction": t, "pq": [p,q], "base": [x,y]}, ...]}.
-    `junctions[t]` is the centroid of triangle t (see module docstring)."""
+    Returns {"junctions": [...], "internal_edges": [{"tris":[t1,t2], "pq":[p,q]}],
+             "external_legs": [{"junction": t, "pq": [p,q], "base": [x,y]}, ...],
+             "junction_kind": "tropical"|"centroid"}.
+    `junctions[t]` is the tropical/Legendre-dual junction of triangle t (see the
+    module docstring); it falls back to the centroid only if no convex lift is
+    found, in which case `junction_kind == "centroid"` and the web is schematic
+    (internal edges no longer perpendicular)."""
     hull = convex_hull(hull)
-    junctions = [centroid(pts[a], pts[b], pts[c]) for (a, b, c) in tris]
+    junctions = tropical_junctions(pts, tris)
+    junction_kind = "tropical"
+    if junctions is None:                              # non-regular fallback
+        junctions = [centroid(pts[a], pts[b], pts[c]) for (a, b, c) in tris]
+        junction_kind = "centroid"
     # which (i,j) lattice segments are on the polygon boundary?
     bset = set()
     n = len(hull)
@@ -323,7 +427,17 @@ def dual_web(pts, tris, hull):
     internal_edges, external_legs = [], []
     for (i, j), owners in edge_map(tris).items():
         if len(owners) == 2:
-            internal_edges.append([owners[0], owners[1]])
+            t1, t2 = owners
+            # charge = primitive normal of the shared toric edge (i,j); the
+            # tropical junctions make J[t2]-J[t1] parallel to it -- orient to
+            # match so the label points along the drawn edge.
+            dx, dy = pts[j][0] - pts[i][0], pts[j][1] - pts[i][1]
+            g = gcd(abs(dx), abs(dy)) or 1
+            px, qy = dy // g, -dx // g                 # primitive edge normal
+            wx, wy = junctions[t2][0] - junctions[t1][0], junctions[t2][1] - junctions[t1][1]
+            if px * wx + qy * wy < 0:
+                px, qy = -px, -qy
+            internal_edges.append({"tris": [t1, t2], "pq": [px, qy]})
         elif len(owners) == 1 and (i, j) in bnorm:
             t = owners[0]
             mid = [(pts[i][0] + pts[j][0]) / 2.0, (pts[i][1] + pts[j][1]) / 2.0]
@@ -331,4 +445,5 @@ def dual_web(pts, tris, hull):
                                   "base": mid})
     return {"junctions": junctions,
             "internal_edges": internal_edges,
-            "external_legs": external_legs}
+            "external_legs": external_legs,
+            "junction_kind": junction_kind}

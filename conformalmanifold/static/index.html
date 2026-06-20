@@ -124,6 +124,7 @@
   .wleg{stroke:var(--accent2);stroke-width:2}
   .wlegdot{fill:var(--accent2)}
   .wleglabel{fill:#bfe9d4;font-size:10px;font-family:ui-monospace,Consolas,monospace}
+  .wedgelabel{fill:#9db4e8;font-size:9px;font-family:ui-monospace,Consolas,monospace;opacity:.85}
 </style>
 </head>
 <body>
@@ -601,8 +602,14 @@ function renderWeb(d){
   const ox=(W-(maxx-minx)*sc)/2, oy=(Hh-(maxy-miny)*sc)/2;
   const X=x=> ox+(x-minx)*sc, Y=y=> Hh-(oy+(y-miny)*sc);
   let s="";
-  for(const [a,b] of web.internal_edges)
+  for(const e of web.internal_edges){
+    const [a,b]=e.tris;
     s+=`<line class="wedge" x1="${X(J[a][0])}" y1="${Y(J[a][1])}" x2="${X(J[b][0])}" y2="${Y(J[b][1])}"/>`;
+    if(e.pq){                                   // (p,q) charge along this finite leg
+      const mx=(J[a][0]+J[b][0])/2, my=(J[a][1]+J[b][1])/2;
+      s+=`<text class="wedgelabel" x="${X(mx)}" y="${Y(my)}" text-anchor="middle" dominant-baseline="central">(${e.pq[0]},${e.pq[1]})</text>`;
+    }
+  }
   for(const leg of web.external_legs){
     const j=J[leg.junction], [p,q]=leg.pq, L=Math.hypot(p,q)||1;
     const ex=j[0]+p/L*legLen, ey=j[1]+q/L*legLen;

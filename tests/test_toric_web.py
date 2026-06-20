@@ -104,6 +104,82 @@ def test_summarize_rejects_collinear():
         api.summarize_toric_web([(0, 0), (1, 0), (2, 0)])
 
 
+# --------------------------------------------------------------------------
+# dual (p,q) web: tropical/Legendre junctions -> perpendicular, balanced web
+# --------------------------------------------------------------------------
+from conformalmanifold import resolution as Rz   # noqa: E402
+
+
+_WEB_DIAGRAMS = [
+    [(0, 0), (1, 0), (1, 1), (0, 1)],                       # conifold
+    [(0, 0), (2, 0), (0, 2)],                                # Z2 x Z2
+    [(0, 0), (3, 0), (0, 1)],                                # asymmetric
+    [(0, 0), (2, 0), (2, 1), (0, 1)],                        # 2x1 rectangle
+    [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)],    # dP3
+]
+
+
+def _toric_edge_of(tris, t1, t2):
+    """The shared lattice edge (i,j) of triangles t1,t2."""
+    return tuple(sorted(set(tris[t1]) & set(tris[t2])))
+
+
+@pytest.mark.parametrize("verts", _WEB_DIAGRAMS)
+def test_dual_web_internal_edges_perpendicular(verts):
+    hull = T.convex_hull(verts)
+    pts, tris = Rz.triangulate(hull)
+    web = Rz.dual_web(pts, tris, hull)
+    assert web["junction_kind"] == "tropical"          # convex lift was found
+    J = web["junctions"]
+    for e in web["internal_edges"]:
+        t1, t2 = e["tris"]
+        i, j = _toric_edge_of(tris, t1, t2)
+        d = (pts[j][0] - pts[i][0], pts[j][1] - pts[i][1])     # toric edge dir
+        w = (J[t2][0] - J[t1][0], J[t2][1] - J[t1][1])          # web edge dir
+        assert abs(d[0] * w[0] + d[1] * w[1]) < 1e-9            # perpendicular
+        assert math.hypot(*w) > 1e-6                            # non-degenerate
+        # the (p,q) label is parallel to the drawn finite leg
+        p, q = e["pq"]
+        assert abs(p * w[1] - q * w[0]) < 1e-9
+        assert math.gcd(abs(p), abs(q)) == 1                    # primitive charge
+
+
+@pytest.mark.parametrize("verts", _WEB_DIAGRAMS)
+def test_dual_web_local_charge_conservation(verts):
+    """At every junction the legs (internal + external) balance to zero."""
+    hull = T.convex_hull(verts)
+    pts, tris = Rz.triangulate(hull)
+    web = Rz.dual_web(pts, tris, hull)
+    bal = [[0, 0] for _ in tris]
+    for e in web["internal_edges"]:                    # pq points t1 -> t2
+        t1, t2 = e["tris"]
+        bal[t1][0] += e["pq"][0]; bal[t1][1] += e["pq"][1]
+        bal[t2][0] -= e["pq"][0]; bal[t2][1] -= e["pq"][1]
+    for leg in web["external_legs"]:                   # outward
+        t = leg["junction"]
+        bal[t][0] += leg["pq"][0]; bal[t][1] += leg["pq"][1]
+    assert all(b == [0, 0] for b in bal)
+
+
+def test_dual_web_flop_changes_web_visibly():
+    """The conifold flop rotates a finite internal edge by 90 degrees (it does
+    not collapse to a point as the circumcenter web would)."""
+    hull = T.convex_hull([(0, 0), (1, 0), (1, 1), (0, 1)])
+    pts, tris = Rz.triangulate(hull)
+    e0 = Rz.flippable_edges(pts, tris)[0]
+    web1 = Rz.dual_web(pts, tris, hull)
+    web2 = Rz.dual_web(pts, Rz.flop(pts, tris, e0), hull)
+
+    def internal_dir(web):
+        J, e = web["junctions"], web["internal_edges"][0]
+        t1, t2 = e["tris"]
+        return (J[t2][0] - J[t1][0], J[t2][1] - J[t1][1])
+
+    d1, d2 = internal_dir(web1), internal_dir(web2)
+    assert math.hypot(*d1) > 0.5 and math.hypot(*d2) > 0.5    # both visible
+    assert abs(d1[0] * d2[0] + d1[1] * d2[1]) < 1e-9          # rotated 90 degrees
+
+
 def test_adjacency_matrix_consistency():
     # the adjacency total equals the number of bifundamental fields
     c = T.conifold()
