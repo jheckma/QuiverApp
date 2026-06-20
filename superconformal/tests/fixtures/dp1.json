@@ -1,0 +1,129 @@
+{
+ "name": "dP_1 N=2",
+ "node_labels": [
+  "SU(2)_0",
+  "SU(2)_1",
+  "SU(2)_2",
+  "SU(2)_3"
+ ],
+ "ranks": [
+  2,
+  2,
+  2,
+  2
+ ],
+ "arrows": [
+  {
+   "label": "X01[0]",
+   "source": 0,
+   "target": 1,
+   "r_charge": "3/11"
+  },
+  {
+   "label": "X02[0]",
+   "source": 0,
+   "target": 2,
+   "r_charge": "7/11"
+  },
+  {
+   "label": "X12[0]",
+   "source": 1,
+   "target": 2,
+   "r_charge": "6/11"
+  },
+  {
+   "label": "X12[1]",
+   "source": 1,
+   "target": 2,
+   "r_charge": "6/11"
+  },
+  {
+   "label": "X23[0]",
+   "source": 2,
+   "target": 3,
+   "r_charge": "9/11"
+  },
+  {
+   "label": "X23[1]",
+   "source": 2,
+   "target": 3,
+   "r_charge": "9/11"
+  },
+  {
+   "label": "X23[2]",
+   "source": 2,
+   "target": 3,
+   "r_charge": "7/11"
+  },
+  {
+   "label": "X30[0]",
+   "source": 3,
+   "target": 0,
+   "r_charge": "6/11"
+  },
+  {
+   "label": "X30[1]",
+   "source": 3,
+   "target": 0,
+   "r_charge": "6/11"
+  },
+  {
+   "label": "X31[0]",
+   "source": 3,
+   "target": 1,
+   "r_charge": "7/11"
+  }
+ ],
+ "superpotential": [
+  {
+   "factors": [
+    "X23[0]",
+    "X30[1]",
+    "X02[0]"
+   ],
+   "coefficient": "1"
+  },
+  {
+   "factors": [
+    "X23[1]",
+    "X30[0]",
+    "X02[0]"
+   ],
+   "coefficient": "-1"
+  },
+  {
+   "factors": [
+    "X23[0]",
+    "X31[0]",
+    "X12[1]"
+   ],
+   "coefficient": "-1"
+  },
+  {
+   "factors": [
+    "X23[1]",
+    "X31[0]",
+    "X12[0]"
+   ],
+   "coefficient": "1"
+  },
+  {
+   "factors": [
+    "X01[0]",
+    "X12[1]",
+    "X23[2]",
+    "X30[0]"
+   ],
+   "coefficient": "1"
+  },
+  {
+   "factors": [
+    "X01[0]",
+    "X12[0]",
+    "X23[2]",
+    "X30[1]"
+   ],
+   "coefficient": "-1"
+  }
+ ]
+}
