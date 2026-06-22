@@ -760,30 +760,35 @@ function renderResult(d){
 }
 
 function drawTiling(t, svgId){
-  // dimer on T^2: tile the unit cell 2x2; white/black vertices + edges (fields)
-  const W=420,H=360,pad=24, cell=Math.min((W-2*pad)/2,(H-2*pad)/2);
-  const X = (gx,ox)=> pad + (gx+ox)*cell;
-  const Y = (gy,oy)=> H - (pad + (gy+oy)*cell);
-  let s="";
-  // faint cell borders
-  for(let ox=0;ox<=2;ox++) s+=`<line x1="${X(0,ox)}" y1="${Y(0,0)}" x2="${X(0,ox)}" y2="${Y(2,0)}" stroke="#222a37"/>`;
-  for(let oy=0;oy<=2;oy++) s+=`<line x1="${X(0,0)}" y1="${Y(0,oy)}" x2="${X(2,0)}" y2="${Y(0,oy)}" stroke="#222a37"/>`;
-  // edges: each field connects white W to the *specific* black image B + h,
-  // where h is the edge's homology class (the universal-cover lift). Using the
-  // nearest image instead would collapse all edges between the same W,B pair.
-  for(let ox=0;ox<2;ox++) for(let oy=0;oy<2;oy++){
-    for(let i=0;i<t.edges.length;i++){
-      const e=t.edges[i], h=(t.edge_h&&t.edge_h[i])||[0,0];
-      const w=t.white[e[0]], b=t.black[e[1]];
-      const tx=b[0]+h[0]-w[0], ty=b[1]+h[1]-w[1];      // true edge vector
-      const wx=X(w[0],ox), wy=Y(w[1],oy), bx=X(w[0]+tx,ox), by=Y(w[1]+ty,oy);
-      s+=`<line x1="${wx.toFixed(1)}" y1="${wy.toFixed(1)}" x2="${bx.toFixed(1)}" y2="${by.toFixed(1)}" stroke="#566a8f" stroke-width="1.3"/>`;
+  // Brane tiling (dimer) on T^2, drawn as a genuine *planar* embedding: use the
+  // un-reduced universal-cover node positions (white_g/black_g) and connect each
+  // field's white vertex W to the black vertex B shifted by -h (its homology
+  // class), so the edge is the true planar edge. Replicate over the Z^2 lattice
+  // (period 1 in each axis) to fill a 2x2-cell window. Faces come out convex.
+  const W=420,H=360,pad=18;
+  const wg=t.white_g||t.white, bg=t.black_g||t.black, eh=t.edge_h||[];
+  const v0=0.0, v1=2.0;                       // show two unit cells
+  const sc=Math.min(W-2*pad, H-2*pad)/(v1-v0);
+  const ox0=(W-(v1-v0)*sc)/2, oy0=(H-(v1-v0)*sc)/2;
+  const X=x=>ox0+(x-v0)*sc, Y=y=>H-(oy0+(y-v0)*sc);
+  // integer-translate range that can land a node inside the window
+  let mn=1e9, mx=-1e9;
+  for(const p of wg.concat(bg)){ mn=Math.min(mn,p[0],p[1]); mx=Math.max(mx,p[0],p[1]); }
+  const lo=Math.floor(v0-mx)-1, hi=Math.ceil(v1-mn)+1;
+  const inview=(x,y)=> x>v0-0.7 && x<v1+0.7 && y>v0-0.7 && y<v1+0.7;
+  let s=`<rect x="${X(0).toFixed(0)}" y="${Y(2).toFixed(0)}" width="${(2*sc).toFixed(0)}" height="${(2*sc).toFixed(0)}" fill="none" stroke="#222a37"/>`;
+  for(let i=lo;i<=hi;i++) for(let j=lo;j<=hi;j++){
+    for(let k=0;k<t.edges.length;k++){
+      const e=t.edges[k], h=eh[k]||[0,0];
+      const w=wg[e[0]], b=bg[e[1]];
+      const x1=w[0]+i, y1=w[1]+j, x2=b[0]-h[0]+i, y2=b[1]-h[1]+j;
+      if(!inview(x1,y1) && !inview(x2,y2)) continue;
+      s+=`<line x1="${X(x1).toFixed(1)}" y1="${Y(y1).toFixed(1)}" x2="${X(x2).toFixed(1)}" y2="${Y(y2).toFixed(1)}" stroke="#566a8f" stroke-width="1.3"/>`;
     }
   }
-  // vertices
-  for(let ox=0;ox<2;ox++) for(let oy=0;oy<2;oy++){
-    for(const p of t.white) s+=`<circle cx="${X(p[0],ox).toFixed(1)}" cy="${Y(p[1],oy).toFixed(1)}" r="4" fill="#e6edf3" stroke="#0b1020"/>`;
-    for(const p of t.black) s+=`<circle cx="${X(p[0],ox).toFixed(1)}" cy="${Y(p[1],oy).toFixed(1)}" r="4" fill="#1c2230" stroke="#9aa7b6"/>`;
+  for(let i=lo;i<=hi;i++) for(let j=lo;j<=hi;j++){
+    for(const p of wg){ const x=p[0]+i, y=p[1]+j; if(inview(x,y)) s+=`<circle cx="${X(x).toFixed(1)}" cy="${Y(y).toFixed(1)}" r="4" fill="#e6edf3" stroke="#0b1020"/>`; }
+    for(const p of bg){ const x=p[0]+i, y=p[1]+j; if(inview(x,y)) s+=`<circle cx="${X(x).toFixed(1)}" cy="${Y(y).toFixed(1)}" r="4" fill="#1c2230" stroke="#9aa7b6"/>`; }
   }
   $(svgId).innerHTML = s;
 }

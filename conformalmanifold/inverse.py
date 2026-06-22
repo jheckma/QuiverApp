@@ -124,6 +124,8 @@ class BraneTiling:
     superpotential: list            # [{"sign":+1/-1,"fields":[labels...]}]
     white_pos: list                 # [(x,y)] in [0,1)^2 (torus)
     black_pos: list
+    white_glob: list                # [(x,y)] un-reduced (planar) embedding
+    black_glob: list
     field_pos: list                 # [(x,y)] one per field (the crossing site)
     tiling_edges: list              # [[white_idx, black_idx]] one per field
     checks: dict
@@ -349,17 +351,22 @@ def _try_tiling(hull, ws, bases):
     # consistent (globally-lifted) node/crossing positions for a clean tiling:
     # each face's corners share one frame, so its centroid is unambiguous (no
     # circular-mean collapse), and reducing mod 1 gives its true torus position.
-    def _centroid(node):
+    def _centroidU(node):
+        """un-reduced global-frame face centroid (an exact planar embedding)."""
         flist = wfaces if node[0] == "W" else bfaces
         f = flist[node[1]]
         off = offset[node]
         ds = faces[f]
         cx = sum(posd_face[f][d][0] + off[0] for d in ds) / len(ds)
         cy = sum(posd_face[f][d][1] + off[1] for d in ds) / len(ds)
-        return (float(cx % 1), float(cy % 1))
+        return (float(cx), float(cy))
 
-    white_pos = [_centroid(("W", wi)) for wi in range(nW)]
-    black_pos = [_centroid(("B", bi)) for bi in range(nB)]
+    # un-reduced (universal-cover) centroids -> a genuine planar tiling layout;
+    # mod-1 versions kept for the torus-cell drawing / field sites.
+    white_glob = [_centroidU(("W", wi)) for wi in range(nW)]
+    black_glob = [_centroidU(("B", bi)) for bi in range(nB)]
+    white_pos = [(x % 1, y % 1) for (x, y) in white_glob]
+    black_pos = [(x % 1, y % 1) for (x, y) in black_glob]
     field_pos = [(float(_gpos(("W", w_of[ci]), ci)[0] % 1),
                   float(_gpos(("W", w_of[ci]), ci)[1] % 1)) for ci in range(E)]
 
@@ -381,7 +388,8 @@ def _try_tiling(hull, ws, bases):
     return BraneTiling(
         num_gauge=len(gauge), num_fields=E, num_white=nW, num_black=nB,
         adjacency=A, fields=fields, superpotential=W,
-        white_pos=white_pos, black_pos=black_pos, field_pos=field_pos,
+        white_pos=white_pos, black_pos=black_pos,
+        white_glob=white_glob, black_glob=black_glob, field_pos=field_pos,
         tiling_edges=tiling_edges, checks=checks,
     )
 
@@ -503,6 +511,9 @@ def inverse_quiver_json(vertices, **kw) -> dict:
         "tiling": {
             "white": [[round(x, 5), round(y, 5)] for (x, y) in t.white_pos],
             "black": [[round(x, 5), round(y, 5)] for (x, y) in t.black_pos],
+            # un-reduced (planar universal-cover) layout for a clean tiling
+            "white_g": [[round(x, 5), round(y, 5)] for (x, y) in t.white_glob],
+            "black_g": [[round(x, 5), round(y, 5)] for (x, y) in t.black_glob],
             "fields": [[round(x, 5), round(y, 5)] for (x, y) in t.field_pos],
             "edges": t.tiling_edges,
             # per-edge homology (white -> black+h is the true universal-cover
