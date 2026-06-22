@@ -505,6 +505,9 @@ def inverse_quiver_json(vertices, **kw) -> dict:
             "black": [[round(x, 5), round(y, 5)] for (x, y) in t.black_pos],
             "fields": [[round(x, 5), round(y, 5)] for (x, y) in t.field_pos],
             "edges": t.tiling_edges,
+            # per-edge homology (white -> black+h is the true universal-cover
+            # edge); needed to draw the tiling without collapsing edges.
+            "edge_h": [f["homology"] for f in t.fields],
         },
         "checks": checks,
         "note": t.note,

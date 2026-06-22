@@ -768,13 +768,15 @@ function drawTiling(t, svgId){
   // faint cell borders
   for(let ox=0;ox<=2;ox++) s+=`<line x1="${X(0,ox)}" y1="${Y(0,0)}" x2="${X(0,ox)}" y2="${Y(2,0)}" stroke="#222a37"/>`;
   for(let oy=0;oy<=2;oy++) s+=`<line x1="${X(0,0)}" y1="${Y(0,oy)}" x2="${X(2,0)}" y2="${Y(0,oy)}" stroke="#222a37"/>`;
-  // edges: connect each field's white & black vertex (nearest periodic image), tiled
+  // edges: each field connects white W to the *specific* black image B + h,
+  // where h is the edge's homology class (the universal-cover lift). Using the
+  // nearest image instead would collapse all edges between the same W,B pair.
   for(let ox=0;ox<2;ox++) for(let oy=0;oy<2;oy++){
-    for(const e of t.edges){
+    for(let i=0;i<t.edges.length;i++){
+      const e=t.edges[i], h=(t.edge_h&&t.edge_h[i])||[0,0];
       const w=t.white[e[0]], b=t.black[e[1]];
-      let dx=b[0]-w[0], dy=b[1]-w[1];
-      dx-=Math.round(dx); dy-=Math.round(dy);          // nearest image
-      const wx=X(w[0],ox), wy=Y(w[1],oy), bx=X(w[0]+dx,ox), by=Y(w[1]+dy,oy);
+      const tx=b[0]+h[0]-w[0], ty=b[1]+h[1]-w[1];      // true edge vector
+      const wx=X(w[0],ox), wy=Y(w[1],oy), bx=X(w[0]+tx,ox), by=Y(w[1]+ty,oy);
       s+=`<line x1="${wx.toFixed(1)}" y1="${wy.toFixed(1)}" x2="${bx.toFixed(1)}" y2="${by.toFixed(1)}" stroke="#566a8f" stroke-width="1.3"/>`;
     }
   }
