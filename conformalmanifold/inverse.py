@@ -252,28 +252,6 @@ def _try_tiling(hull, ws, bases):
     if not all(cp[c] == 1 and cm[c] == 1 for c in range(E)):
         return None                          # not a genuine two-term W
 
-    # geometry for drawing: crossing site, and node = mean of its crossings
-    def site(ci):
-        k, l, sk, sl = cr[ci]
-        x = (bases[k][0] + sk * ws[k][0]) % 1
-        y = (bases[k][1] + sk * ws[k][1]) % 1
-        return (float(x), float(y))
-
-    field_pos = [site(ci) for ci in range(E)]
-
-    def node_pos(f):
-        cs = [d[0] for d in faces[f]]
-        # average on the torus via mean of unit-circle angles per axis
-        import cmath
-        zx = sum(cmath.exp(2j * math.pi * field_pos[c][0]) for c in cs)
-        zy = sum(cmath.exp(2j * math.pi * field_pos[c][1]) for c in cs)
-        ax = (math.atan2(zx.imag, zx.real) / (2 * math.pi)) % 1
-        ay = (math.atan2(zy.imag, zy.real) / (2 * math.pi)) % 1
-        return (ax, ay)
-
-    white_pos = [node_pos(f) for f in wfaces]
-    black_pos = [node_pos(f) for f in bfaces]
-
     # each field (crossing) lies on exactly one white and one black tiling vertex
     w_of, b_of = {}, {}
     for wi, f in enumerate(wfaces):
@@ -367,6 +345,23 @@ def _try_tiling(hull, ws, bases):
         if hx.denominator != 1 or hy.denominator != 1:
             return None                          # inconsistent lift -> reject
         homology[ci] = (int(hx), int(hy))
+
+    # consistent (globally-lifted) node/crossing positions for a clean tiling:
+    # each face's corners share one frame, so its centroid is unambiguous (no
+    # circular-mean collapse), and reducing mod 1 gives its true torus position.
+    def _centroid(node):
+        flist = wfaces if node[0] == "W" else bfaces
+        f = flist[node[1]]
+        off = offset[node]
+        ds = faces[f]
+        cx = sum(posd_face[f][d][0] + off[0] for d in ds) / len(ds)
+        cy = sum(posd_face[f][d][1] + off[1] for d in ds) / len(ds)
+        return (float(cx % 1), float(cy % 1))
+
+    white_pos = [_centroid(("W", wi)) for wi in range(nW)]
+    black_pos = [_centroid(("B", bi)) for bi in range(nB)]
+    field_pos = [(float(_gpos(("W", w_of[ci]), ci)[0] % 1),
+                  float(_gpos(("W", w_of[ci]), ci)[1] % 1)) for ci in range(E)]
 
     fields = [{"label": f"X{ci}", "src": field_edges[ci][0],
                "tgt": field_edges[ci][1],
