@@ -11,8 +11,10 @@ from conformalmanifold.scft import (
     central_charges,
     minimize_volume,
     orbifold_scft,
+    toric_field_R_charges,
     toric_scft_json,
 )
+from conformalmanifold.inverse import inverse_quiver_json
 from conformalmanifold import toric as T
 
 
@@ -107,3 +109,43 @@ def test_minimize_volume_returns_reeb_with_b1_three():
     g, b, t, ok = minimize_volume([(0, 0), (1, 0), (0, 1)])
     assert b[0] == pytest.approx(3.0)
     assert g == pytest.approx(3.0, rel=1e-6)        # C^3 -> g = 3
+
+
+# ---------------------------------------------------------------------------
+# per-field superconformal R-charges (Butti-Zaffaroni)
+# ---------------------------------------------------------------------------
+def _field_R(verts):
+    hull = T.convex_hull(verts)
+    inv = inverse_quiver_json(hull, max_gauge=40)
+    sc = toric_scft_json(hull)
+    return toric_field_R_charges(hull, inv["fields"], inv["superpotential"],
+                                 sc["corner_R"])
+
+
+# (label, vertices, expected sorted distinct R or None to skip value check)
+RCASES = [
+    ("C3",       [(0, 0), (1, 0), (0, 1)],                              [2 / 3]),
+    ("conifold", [(0, 0), (1, 0), (1, 1), (0, 1)],                      [0.5]),
+    ("dP0",      [(1, 0), (0, 1), (-1, -1)],                            [2 / 3]),
+    ("F0",       [(-1, 0), (1, 0), (0, 1), (0, -1)],                    [0.5]),
+    ("Z2xZ2",    [(0, 0), (2, 0), (0, 2)],                              [2 / 3]),
+    ("dP3",      [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)],
+                 [1 / 3, 2 / 3]),
+    ("dP1",      [(1, 0), (0, 1), (-1, -1), (0, -1)],                   None),
+    ("SPP",      [(0, 0), (2, 0), (1, 1), (0, 1)],                      None),
+]
+
+
+@pytest.mark.parametrize("label,verts,expected", RCASES)
+def test_field_R_charges_are_superconformal(label, verts, expected):
+    out = _field_R(verts)
+    # both independent certificates must hold
+    assert out["W_marginal"], label       # every W-term sum R = 2
+    assert out["nsvz_ok"], label           # every gauge node sum(1 - R) = 2
+    # all field R-charges in the unitary window (0, 2)
+    assert all(0 < f["R"] < 2 for f in out["field_R"]), label
+    if expected is not None:
+        got = out["distinct_R"]
+        assert len(got) == len(expected), (label, got)
+        for g, e in zip(got, sorted(expected)):
+            assert g == pytest.approx(e, abs=2e-3), (label, got)

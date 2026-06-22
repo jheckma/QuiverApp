@@ -268,6 +268,78 @@ def minimize_volume(corners):
     return g_min, b, t, converged
 
 
+def toric_field_R_charges(corners, fields, superpotential, corner_R) -> dict:
+    """Per-field superconformal R-charges for a toric quiver (Butti-Zaffaroni).
+
+    Each field sits at a crossing of two zig-zag legs; its R-charge is the sum of
+    the per-corner MSY R-charges over the corners in the arc between those legs.
+    The arc (one of two, summing to 2) is fixed by requiring every superpotential
+    term to be marginal (sum R = 2); the assignment is then independently checked
+    against the gauge-node NSVZ condition (sum_{fields at node}(1 - R) = 2).
+
+    `corners`          : CCW polygon vertices (the toric-diagram corners).
+    `fields`           : the inverse-algorithm fields, each with "label",
+                         "zigzag" = [leg_k, leg_l], "src", "tgt".
+    `superpotential`   : the two-term W, each {"fields": [labels...]}.
+    `corner_R`         : per-corner R-charges [{"corner": [x, y], "R": val}, ...].
+    """
+    from math import gcd
+
+    from .inverse import zigzag_windings
+
+    hull = [(int(x), int(y)) for (x, y) in corners]
+    n = len(hull)
+    Rof = {tuple(c["corner"]): c["R"] for c in corner_R}
+    # which polygon edge each zig-zag leg belongs to (CCW, with multiplicity g)
+    leg_edge = []
+    for i in range(n):
+        a, b = hull[i], hull[(i + 1) % n]
+        g = gcd(abs(b[0] - a[0]), abs(b[1] - a[1])) or 1
+        leg_edge += [i] * g
+    B = len(leg_edge)
+    # gap[j] sits between leg j and leg j+1: the shared corner's R if the edge
+    # index changes there, else 0.  (sum of gaps = sum of corner R = 2)
+    gap = [Rof[hull[(leg_edge[(j + 1) % B])]] if leg_edge[j] != leg_edge[(j + 1) % B]
+           else 0.0 for j in range(B)]
+
+    def arc(k, l):
+        s, j = 0.0, k
+        while j != l:
+            s += gap[j]
+            j = (j + 1) % B
+        return s
+
+    # candidate arc-sums; pick the minimal arc (verified below to be marginal)
+    R = {}
+    for f in fields:
+        r = arc(f["zigzag"][0], f["zigzag"][1])
+        R[f["label"]] = min(r, 2.0 - r)
+
+    # certificate 1: every superpotential term is marginal (sum R = 2)
+    w_marginal = all(abs(sum(R[x] for x in term["fields"]) - 2.0) < 1e-6
+                     for term in superpotential)
+    # certificate 2: gauge-node NSVZ condition  sum_{fields at node}(1 - R) = 2
+    node = {}
+    for f in fields:
+        for gnode in (f["src"], f["tgt"]):
+            node[gnode] = node.get(gnode, 0.0) + (1.0 - R[f["label"]])
+    nsvz_ok = all(abs(v - 2.0) < 1e-6 for v in node.values())
+
+    field_R = [{"label": f["label"], "src": f["src"], "tgt": f["tgt"],
+                "R": round(R[f["label"]], 5)} for f in fields]
+    # distinct values, clustering numeric-minimisation noise (tol 1e-3)
+    distinct = []
+    for v in sorted(R[f["label"]] for f in fields):
+        if not distinct or abs(v - distinct[-1]) > 1e-3:
+            distinct.append(round(v, 4))
+    return {
+        "field_R": field_R,
+        "distinct_R": distinct,
+        "W_marginal": bool(w_marginal),     # every term sum R = 2
+        "nsvz_ok": bool(nsvz_ok),           # every gauge node sum(1-R) = 2
+    }
+
+
 def toric_scft_json(corners) -> dict:
     """Superconformal data of the toric CY3 SCFT, from its toric diagram.
 

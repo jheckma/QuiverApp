@@ -330,6 +330,10 @@
           <div style="margin-top:6px" id="ts-rtags"></div>
         </div>
       </div>
+      <div id="ts-fieldR-wrap" class="hide" style="margin-top:10px;border-top:1px solid #2a3550;padding-top:8px">
+        <div class="kv"><span class="k">per-field R-charges &nbsp;<span id="ts-fieldR-badge" class="badge"></span></span><span class="v" id="ts-fieldR-distinct"></span></div>
+        <div style="margin-top:6px" id="ts-fieldR-tags"></div>
+      </div>
       <div class="note hide" id="ts-note"></div>
     </div>
 
@@ -831,6 +835,20 @@ function renderToricScft(s){
   $("ts-rsum").textContent = s.R_sum;
   $("ts-rtags").innerHTML = s.corner_R.map(cr =>
       `<span class="legtag">(${cr.corner[0]},${cr.corner[1]}): R=${cr.R}</span>`).join("");
+  // per-field R-charges (Butti–Zaffaroni), with the two superconformal checks
+  const fr = s.field_R;
+  if(fr && fr.field_R){
+    $("ts-fieldR-wrap").classList.remove("hide");
+    const ok = fr.W_marginal && fr.nsvz_ok;
+    const fb = $("ts-fieldR-badge");
+    fb.className = "badge " + (ok ? "chiral" : "vector");
+    fb.textContent = ok ? "W marginal ✓ · NSVZ ✓" : "checks failed";
+    $("ts-fieldR-distinct").textContent = "{ " + fr.distinct_R.join(", ") + " }";
+    $("ts-fieldR-tags").innerHTML = fr.field_R.map(f =>
+        `<span class="pill">${f.label}: R=${f.R} &nbsp;(${f.src}→${f.tgt})</span>`).join("");
+  } else {
+    $("ts-fieldR-wrap").classList.add("hide");
+  }
   if(s.note){ $("ts-note").textContent=s.note; $("ts-note").classList.remove("hide"); }
   else $("ts-note").classList.add("hide");
 }

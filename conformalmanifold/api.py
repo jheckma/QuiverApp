@@ -8,7 +8,7 @@ from .chartable import build_character_table
 from .conformal import conformal_manifold_dim
 from .groups import MatrixGroup, cyclic, make_group
 from .quiver import build_quiver
-from .scft import orbifold_scft_json, toric_scft_json
+from .scft import orbifold_scft_json, toric_field_R_charges, toric_scft_json
 from .inverse import inverse_quiver_json
 
 
@@ -152,6 +152,13 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None) -> dict:
         # alone (works for ANY polygon, independent of the named library below).
         "inverse_quiver": inverse_quiver_json(hull, max_gauge=40),
     }
+
+    # per-field superconformal R-charges: needs both the corner R-charges (scft)
+    # and the reconstructed dimer (zig-zag legs + superpotential).
+    inv = out["inverse_quiver"]
+    if inv.get("available") and out["scft"].get("corner_R"):
+        out["scft"]["field_R"] = toric_field_R_charges(
+            hull, inv["fields"], inv["superpotential"], out["scft"]["corner_R"])
 
     geom = T.identify_toric(hull)
     if geom is None:
