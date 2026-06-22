@@ -2,7 +2,8 @@
 
 import pytest
 
-from conformalmanifold.inverse import inverse_quiver, inverse_quiver_json
+from conformalmanifold.inverse import (
+    inverse_quiver, inverse_quiver_json, kasteleyn_newton_polygon)
 from conformalmanifold import toric as T
 from conformalmanifold.chartable import build_character_table
 from conformalmanifold.groups import cyclic
@@ -95,3 +96,15 @@ def test_inverse_determinism():
     a = inverse_quiver([(1, 0), (0, 1), (-1, 0), (-1, -1), (0, -1)])   # dP2
     b = inverse_quiver([(1, 0), (0, 1), (-1, 0), (-1, -1), (0, -1)])
     assert a.adjacency_int() == b.adjacency_int()
+
+
+@pytest.mark.parametrize("label,verts,ngauge,nfields", CASES)
+def test_kasteleyn_newton_polygon_recovers_diagram(label, verts, ngauge, nfields):
+    # *Independent* certificate: the Newton polygon of the Kasteleyn determinant
+    # of the reconstructed tiling must equal the input toric diagram up to
+    # GL(2,Z) + translation (the toric diagram is only defined up to SL(2,Z)).
+    t = inverse_quiver(verts)
+    newt = kasteleyn_newton_polygon(t)
+    want = T.convex_hull(verts)
+    assert T.normalized_area(newt) == T.normalized_area(want), label
+    assert T.gl2z_equiv(newt, want), label

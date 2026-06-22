@@ -50,7 +50,7 @@ from dataclasses import dataclass, field
 from fractions import Fraction as Fr
 from math import gcd
 
-from .toric import convex_hull, normalized_area
+from .toric import convex_hull, gl2z_equiv, normalized_area
 
 
 # ===========================================================================
@@ -284,9 +284,95 @@ def _try_tiling(hull, ws, bases):
             b_of[d[0]] = bi
     tiling_edges = [[w_of[ci], b_of[ci]] for ci in range(E)]
 
+    # ----- exact edge-homology cochain (for the Kasteleyn Newton-polygon) -----
+    # Each tiling edge ci gets a Z^2 class h_ci so that  det K(x,y), with entry
+    # K[w][b] = sum_e x^{h_e.x} y^{h_e.y}, has Newton polygon = the toric diagram
+    # (up to GL(2,Z)+translation).  Built exactly (Fraction arithmetic) by:
+    #   (1) walking each white/black face's boundary, accumulating the arc
+    #       displacements (param-step * winding) -> corners in the face's frame;
+    #   (2) a spanning tree over the (white,black) graph that re-lifts each face
+    #       so a shared crossing coincides -> one global frame;
+    #   (3) h_ci = (black corner) - (white corner) of crossing ci in that frame
+    #       (tree edges -> 0, cotree edges carry the winding).
+    disp_plus, disp_minus = {}, {}
+    for p in range(B):
+        seq = along[p]
+        L = len(seq)
+        for idx in range(L):
+            param_i, ci_i, side_i = seq[idx]
+            param_j, ci_j, side_j = seq[(idx + 1) % L]
+            ds = (param_j - param_i) % 1                 # Fraction in (0,1]
+            v = (ds * ws[p][0], ds * ws[p][1])
+            disp_plus[(ci_i, side_i)] = v
+            disp_minus[(ci_j, side_j)] = (-v[0], -v[1])
+
+    def _alpha_disp(d):
+        return disp_plus[(d[0], d[1])] if d[2] == 1 else disp_minus[(d[0], d[1])]
+
+    posd_face = {}                  # face id -> {dart: (Fr x, Fr y)} corner pos
+    w_dart, b_dart = {}, {}
+    for f in wfaces + bfaces:
+        orb = faces[f]
+        pos = {orb[0]: (Fr(0), Fr(0))}
+        cur = (Fr(0), Fr(0))
+        for i in range(len(orb)):
+            dd = _alpha_disp(orb[i])
+            cur = (cur[0] + dd[0], cur[1] + dd[1])
+            j = (i + 1) % len(orb)
+            if j != 0:
+                pos[orb[j]] = cur
+        posd_face[f] = pos
+    for wi, f in enumerate(wfaces):
+        for d in faces[f]:
+            w_dart[d[0]] = d
+    for bi, f in enumerate(bfaces):
+        for d in faces[f]:
+            b_dart[d[0]] = d
+
+    def _local_white(ci):
+        return posd_face[wfaces[w_of[ci]]][w_dart[ci]]
+
+    def _local_black(ci):
+        return posd_face[bfaces[b_of[ci]]][b_dart[ci]]
+
+    # spanning tree over white/black faces, fields as edges -> global offsets
+    fadj = {}
+    for ci in range(E):
+        u, v = ("W", w_of[ci]), ("B", b_of[ci])
+        fadj.setdefault(u, []).append((v, ci))
+        fadj.setdefault(v, []).append((u, ci))
+    offset = {("W", 0): (Fr(0), Fr(0))}
+
+    def _gpos(node, ci):
+        loc = _local_white(ci) if node[0] == "W" else _local_black(ci)
+        off = offset[node]
+        return (loc[0] + off[0], loc[1] + off[1])
+
+    stack = [("W", 0)]
+    while stack:
+        u = stack.pop()
+        for (v, ci) in fadj[u]:
+            if v in offset:
+                continue
+            gu = _gpos(u, ci)
+            loc_v = _local_white(ci) if v[0] == "W" else _local_black(ci)
+            offset[v] = (gu[0] - loc_v[0], gu[1] - loc_v[1])
+            stack.append(v)
+
+    homology = {}
+    for ci in range(E):
+        cw = _gpos(("W", w_of[ci]), ci)
+        cb = _gpos(("B", b_of[ci]), ci)
+        hx, hy = cb[0] - cw[0], cb[1] - cw[1]
+        if hx.denominator != 1 or hy.denominator != 1:
+            return None                          # inconsistent lift -> reject
+        homology[ci] = (int(hx), int(hy))
+
     fields = [{"label": f"X{ci}", "src": field_edges[ci][0],
                "tgt": field_edges[ci][1],
-               "white": w_of[ci], "black": b_of[ci]} for ci in range(E)]
+               "white": w_of[ci], "black": b_of[ci],
+               "zigzag": [cr[ci][0], cr[ci][1]],
+               "homology": list(homology[ci])} for ci in range(E)]
 
     checks = {
         "gauge_eq_2area": len(gauge) == a2,
@@ -342,12 +428,73 @@ def inverse_quiver(vertices, max_attempts: int = 400, max_gauge: int = 60):
                      "diagram (the placement search did not converge)")
 
 
+def kasteleyn_newton_polygon(tiling: BraneTiling):
+    """Newton polygon of the Kasteleyn determinant of `tiling`.
+
+    Builds the (n_white x n_black) Kasteleyn matrix  K[w][b] = sum over edges
+    w->b of  x^{h.x} y^{h.y}  (h = the exact edge-homology cochain stored on
+    each field), forms det K as a Laurent polynomial, and returns the convex
+    hull of its monomial exponents.
+
+    For a consistent brane tiling this Newton polygon equals the input toric
+    diagram up to GL(2,Z) + translation -- an *independent* certificate of the
+    inverse construction (the extremal monomials come from unique perfect
+    matchings, so they never cancel regardless of sign convention).
+    """
+    from itertools import permutations
+
+    n = tiling.num_white
+    K = [[dict() for _ in range(n)] for _ in range(n)]
+    for f in tiling.fields:
+        w, b = f["white"], f["black"]
+        key = (f["homology"][0], f["homology"][1])
+        K[w][b][key] = K[w][b].get(key, 0) + 1
+
+    def _pmul(a, b):
+        out = {}
+        for (i, j), u in a.items():
+            for (k, l), v in b.items():
+                p = (i + k, j + l)
+                out[p] = out.get(p, 0) + u * v
+        return out
+
+    det = {}
+    for perm in permutations(range(n)):
+        sign, seen = 1, [False] * n
+        for i in range(n):
+            if seen[i]:
+                continue
+            j, ln = i, 0
+            while not seen[j]:
+                seen[j] = True
+                j, ln = perm[j], ln + 1
+            if ln % 2 == 0:
+                sign = -sign
+        term, ok = {(0, 0): sign}, True
+        for i in range(n):
+            e = K[i][perm[i]]
+            if not e:
+                ok = False
+                break
+            term = _pmul(term, e)
+        if not ok:
+            continue
+        for k, v in term.items():
+            det[k] = det.get(k, 0) + v
+    exps = [k for k, v in det.items() if v != 0]
+    return convex_hull(exps)
+
+
 def inverse_quiver_json(vertices, **kw) -> dict:
     """JSON-friendly inverse-algorithm result for the web API (or an error)."""
     try:
         t = inverse_quiver(vertices, **kw)
     except ValueError as exc:
         return {"available": False, "error": str(exc)}
+    # independent certificate: Newton polygon of det K == input toric diagram
+    newton = kasteleyn_newton_polygon(t)
+    checks = dict(t.checks)
+    checks["kasteleyn_newton_matches"] = gl2z_equiv(newton, convex_hull(vertices))
     return {
         "available": True,
         "num_gauge": t.num_gauge,
@@ -357,12 +504,13 @@ def inverse_quiver_json(vertices, **kw) -> dict:
         "adjacency": t.adjacency_int(),
         "fields": t.fields,
         "superpotential": t.superpotential,
+        "kasteleyn_newton": [list(v) for v in newton],
         "tiling": {
             "white": [[round(x, 5), round(y, 5)] for (x, y) in t.white_pos],
             "black": [[round(x, 5), round(y, 5)] for (x, y) in t.black_pos],
             "fields": [[round(x, 5), round(y, 5)] for (x, y) in t.field_pos],
             "edges": t.tiling_edges,
         },
-        "checks": t.checks,
+        "checks": checks,
         "note": t.note,
     }
