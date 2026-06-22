@@ -8,6 +8,8 @@ from .chartable import build_character_table
 from .conformal import conformal_manifold_dim
 from .groups import MatrixGroup, cyclic, make_group
 from .quiver import build_quiver
+from .scft import orbifold_scft_json, toric_scft_json
+from .inverse import inverse_quiver_json
 
 
 def _c(z) -> dict:
@@ -56,6 +58,7 @@ def summarize(group: MatrixGroup) -> dict:
             "per_direction": result.per_direction,
             "note": result.note,
         },
+        "scft": orbifold_scft_json(group, quiver),
     }
 
 
@@ -144,6 +147,10 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None) -> dict:
                        "= # external (p,q) legs)",
             "num_gauge_groups": area2,         # = 2 * area of the toric diagram
         },
+        "scft": toric_scft_json(hull),         # central charges + R-charges
+        # inverse algorithm: reconstruct a quiver + brane tiling from the diagram
+        # alone (works for ANY polygon, independent of the named library below).
+        "inverse_quiver": inverse_quiver_json(hull, max_gauge=40),
     }
 
     geom = T.identify_toric(hull)

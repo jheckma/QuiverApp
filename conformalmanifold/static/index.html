@@ -217,9 +217,24 @@
       </div>
     </div>
 
-    <div class="card" style="margin-top:18px">
-      <h2>Adjacency &nbsp;A[i&rarr;j] &nbsp;(number of arrows)</h2>
-      <div id="adjwrap" style="overflow:auto"></div>
+    <div class="card scft" style="margin-top:18px">
+      <h2>Superconformal data &nbsp;<span id="s-badge" class="badge"></span></h2>
+      <div class="grid" style="grid-template-columns:1fr 1fr">
+        <div>
+          <div class="kv"><span class="k">gauge group</span><span class="v" id="s-gauge"></span></div>
+          <div class="kv"><span class="k">bifundamental chirals</span><span class="v" id="s-matter"></span></div>
+          <div class="kv"><span class="k">R-charge of each chiral</span><span class="v" id="s-rchi"></span></div>
+          <div class="kv"><span class="k">R-charge of W (marginal)</span><span class="v" id="s-rw"></span></div>
+        </div>
+        <div>
+          <div class="kv"><span class="k">Tr R</span><span class="v" id="s-trR"></span></div>
+          <div class="kv"><span class="k">Tr R&sup3;</span><span class="v" id="s-trR3"></span></div>
+          <div class="kv"><span class="k">central charge a</span><span class="v" id="s-a"></span></div>
+          <div class="kv"><span class="k">central charge c</span><span class="v" id="s-c"></span></div>
+          <div class="kv"><span class="k">a / a<sub>N=4</sub></span><span class="v" id="s-ratio"></span></div>
+        </div>
+      </div>
+      <div class="note hide" id="s-note"></div>
     </div>
   </div>
 
@@ -296,6 +311,23 @@
       </div>
     </div>
 
+    <div class="card scft" style="margin-top:18px">
+      <h2>Superconformal data &nbsp;<span id="ts-badge" class="badge"></span></h2>
+      <div class="grid" style="grid-template-columns:1fr 1fr">
+        <div>
+          <div class="kv"><span class="k">central charge a = c</span><span class="v" id="ts-a"></span></div>
+          <div class="kv"><span class="k">a / a<sub>N=4</sub> = Vol(S&#8309;)/Vol(X&#8309;)</span><span class="v" id="ts-ratio"></span></div>
+          <div class="kv"><span class="k">Vol(X&#8309;) / Vol(S&#8309;)</span><span class="v" id="ts-vol"></span></div>
+          <div class="kv"><span class="k">Reeb vector b</span><span class="v" id="ts-reeb"></span></div>
+        </div>
+        <div>
+          <div class="kv"><span class="k">per-corner R-charges (&sum; = 2)</span><span class="v" id="ts-rsum"></span></div>
+          <div style="margin-top:6px" id="ts-rtags"></div>
+        </div>
+      </div>
+      <div class="note hide" id="ts-note"></div>
+    </div>
+
     <div id="t-quivercard" class="card hide" style="margin-top:18px">
       <h2>Quiver gauge theory &nbsp;<span id="t-qbadge" class="badge"></span></h2>
       <div class="kv"><span class="k">gauge nodes</span><span class="v" id="t-qnodes"></span></div>
@@ -306,6 +338,41 @@
         <svg id="t-quiver" viewBox="0 0 420 360"></svg>
         <div id="t-adjwrap" style="overflow:auto"></div>
       </div>
+    </div>
+
+    <div id="t-invcard" class="card hide" style="margin-top:18px">
+      <h2>Reconstructed quiver &mdash; inverse algorithm &nbsp;<span id="iv-badge" class="badge"></span></h2>
+      <div class="sub" style="margin:0 0 10px">
+        Gulotta brane-tiling inverse: the toric diagram alone &rarr; a consistent dimer
+        &rarr; gauge nodes (tiling faces), bifundamentals (edges), and a toric superpotential
+        (white/black vertices). Works for any polygon, no library entry needed.
+      </div>
+      <div class="grid" style="grid-template-columns:1fr 1fr">
+        <div>
+          <div class="kv"><span class="k">gauge nodes (= 2&times;area)</span><span class="v" id="iv-gauge"></span></div>
+          <div class="kv"><span class="k">bifundamental fields</span><span class="v" id="iv-fields"></span></div>
+          <div class="kv"><span class="k">W terms (white + black)</span><span class="v" id="iv-w"></span></div>
+        </div>
+        <div id="iv-checks"></div>
+      </div>
+      <div class="builder" style="margin-top:10px">
+        <div>
+          <div class="help" style="margin:0 0 4px">quiver (gauge nodes &amp; oriented bifundamentals)</div>
+          <svg id="iv-quiver" viewBox="0 0 420 360"></svg>
+          <div id="iv-adjwrap" style="overflow:auto;margin-top:6px"></div>
+        </div>
+        <div>
+          <div class="help" style="margin:0 0 4px">brane tiling (dimer on T&sup2; &mdash; 2&times;2 cells;
+            <span style="color:#e6edf3">&#9675;</span> white /
+            <span style="color:#9aa7b6">&#9679;</span> black vertices)</div>
+          <svg id="iv-tiling" class="grid" viewBox="0 0 420 360"></svg>
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <div class="help" style="margin:0 0 4px">toric superpotential (each field appears once with + and once with &minus;)</div>
+        <div id="iv-superpot" style="font:12.5px/1.7 ui-monospace,Consolas,monospace;color:var(--ink)"></div>
+      </div>
+      <div class="note hide" id="iv-note"></div>
     </div>
 
     <div class="foot">a toric diagram (lattice polygon) &harr; its (p,q) web &harr; a quiver gauge theory
@@ -464,9 +531,35 @@ function render(d){
   else { badge.className="badge vector"; badge.textContent="non-chiral · vectorlike (Γ ⊂ SO(3))"; }
   $("q-gauge").innerHTML = q.node_labels.map((l,i)=>`<span class="pill">R${i}: ${l}</span>`).join("");
 
+  renderScft(d.scft);
+
   drawQuiver(q.adjacency, q.dims);
   drawAdj(q.adjacency);
   $("out").classList.remove("hide");
+}
+
+// a central charge given as a coefficient of N^2: "27/4 N²" / "0.4219 N²"
+function fmtCC(cc){
+  const f = (cc.frac!==undefined) ? cc.frac : (Math.round(cc.val*1e6)/1e6);
+  return `${f} N²`;
+}
+
+function renderScft(s){
+  if(!s){ return; }
+  const badge=$("s-badge");
+  badge.className="badge "+(s.a_eq_c?"chiral":"vector");
+  badge.textContent = s.a_eq_c ? "a = c" : "a ≠ c";
+  $("s-gauge").textContent = s.gauge_group;
+  $("s-matter").textContent = s.num_bifundamentals;
+  $("s-rchi").textContent = s.R_chiral.frac + "  (= " + (Math.round(s.R_chiral.val*1000)/1000) + ")";
+  $("s-rw").textContent = s.R_superpotential;
+  $("s-trR").textContent = fmtCC(s.tr_R) + (s.tr_R_zero ? "  (= 0)" : "");
+  $("s-trR3").textContent = fmtCC(s.tr_R3);
+  $("s-a").textContent = fmtCC(s.a);
+  $("s-c").textContent = fmtCC(s.c);
+  $("s-ratio").textContent = (s.a_over_aN4.frac!==undefined ? s.a_over_aN4.frac : s.a_over_aN4);
+  if(s.note){ $("s-note").textContent=s.note; $("s-note").classList.remove("hide"); }
+  else $("s-note").classList.add("hide");
 }
 
 $("go").addEventListener("click", compute);
@@ -639,6 +732,9 @@ function renderResult(d){
   if(note){ $("t-note").textContent=note; $("t-note").classList.remove("hide"); }
   else $("t-note").classList.add("hide");
 
+  renderToricScft(d.scft);
+  renderInverse(d.inverse_quiver);
+
   if(d.quiver){
     const q=d.quiver;
     $("t-quivercard").classList.remove("hide");
@@ -652,6 +748,86 @@ function renderResult(d){
   } else {
     $("t-quivercard").classList.add("hide");
   }
+}
+
+function drawTiling(t, svgId){
+  // dimer on T^2: tile the unit cell 2x2; white/black vertices + edges (fields)
+  const W=420,H=360,pad=24, cell=Math.min((W-2*pad)/2,(H-2*pad)/2);
+  const X = (gx,ox)=> pad + (gx+ox)*cell;
+  const Y = (gy,oy)=> H - (pad + (gy+oy)*cell);
+  let s="";
+  // faint cell borders
+  for(let ox=0;ox<=2;ox++) s+=`<line x1="${X(0,ox)}" y1="${Y(0,0)}" x2="${X(0,ox)}" y2="${Y(2,0)}" stroke="#222a37"/>`;
+  for(let oy=0;oy<=2;oy++) s+=`<line x1="${X(0,0)}" y1="${Y(0,oy)}" x2="${X(2,0)}" y2="${Y(0,oy)}" stroke="#222a37"/>`;
+  // edges: connect each field's white & black vertex (nearest periodic image), tiled
+  for(let ox=0;ox<2;ox++) for(let oy=0;oy<2;oy++){
+    for(const e of t.edges){
+      const w=t.white[e[0]], b=t.black[e[1]];
+      let dx=b[0]-w[0], dy=b[1]-w[1];
+      dx-=Math.round(dx); dy-=Math.round(dy);          // nearest image
+      const wx=X(w[0],ox), wy=Y(w[1],oy), bx=X(w[0]+dx,ox), by=Y(w[1]+dy,oy);
+      s+=`<line x1="${wx.toFixed(1)}" y1="${wy.toFixed(1)}" x2="${bx.toFixed(1)}" y2="${by.toFixed(1)}" stroke="#566a8f" stroke-width="1.3"/>`;
+    }
+  }
+  // vertices
+  for(let ox=0;ox<2;ox++) for(let oy=0;oy<2;oy++){
+    for(const p of t.white) s+=`<circle cx="${X(p[0],ox).toFixed(1)}" cy="${Y(p[1],oy).toFixed(1)}" r="4" fill="#e6edf3" stroke="#0b1020"/>`;
+    for(const p of t.black) s+=`<circle cx="${X(p[0],ox).toFixed(1)}" cy="${Y(p[1],oy).toFixed(1)}" r="4" fill="#1c2230" stroke="#9aa7b6"/>`;
+  }
+  $(svgId).innerHTML = s;
+}
+
+function renderInverse(iv){
+  const card=$("t-invcard");
+  if(!iv || !iv.available){
+    card.classList.remove("hide");
+    $("iv-badge").className="badge vector"; $("iv-badge").textContent="unavailable";
+    $("iv-gauge").textContent = $("iv-fields").textContent = $("iv-w").textContent = "—";
+    $("iv-checks").innerHTML="";
+    $("iv-quiver").innerHTML=""; $("iv-adjwrap").innerHTML=""; $("iv-tiling").innerHTML="";
+    $("iv-superpot").textContent="";
+    const msg = iv && iv.error ? iv.error : "no diagram";
+    $("iv-note").textContent = msg; $("iv-note").classList.remove("hide");
+    return;
+  }
+  card.classList.remove("hide");
+  const allok = Object.values(iv.checks).every(v => v===true || v===0);
+  $("iv-badge").className="badge "+(allok?"chiral":"vector");
+  $("iv-badge").textContent = allok ? "consistent dimer ✓" : "check failed";
+  $("iv-gauge").textContent = iv.num_gauge;
+  $("iv-fields").textContent = iv.num_fields;
+  $("iv-w").textContent = `${iv.num_white + iv.num_black}  (${iv.num_white} + ${iv.num_black})`;
+  const labels = {gauge_eq_2area:"#gauge = 2·area", fields_eq_sum_det:"#fields = Σ|det|",
+    white_eq_black:"#white = #black", anomaly_free:"anomaly-free",
+    toric_superpotential:"toric superpotential", euler_V_minus_E_plus_F:"V−E+F = 0 (T²)"};
+  $("iv-checks").innerHTML = Object.keys(labels).map(k=>{
+    const v=iv.checks[k]; const ok=(v===true||v===0);
+    return `<div class="kv"><span class="k">${labels[k]}</span><span class="v">${ok?"✓":"✗ ("+v+")"}</span></div>`;
+  }).join("");
+  const dims = new Array(iv.num_gauge).fill(1);
+  drawQuiver(iv.adjacency, dims, "iv-quiver");
+  drawAdj(iv.adjacency, "iv-adjwrap");
+  drawTiling(iv.tiling, "iv-tiling");
+  $("iv-superpot").innerHTML = "W = " + iv.superpotential.map(term =>
+    (term.sign>0?"+":"−") + " " + term.fields.join("·")).join("  ");
+  $("iv-note").textContent = iv.note || ""; $("iv-note").classList.toggle("hide", !iv.note);
+}
+
+function renderToricScft(s){
+  if(!s){ return; }
+  const badge=$("ts-badge");
+  badge.className="badge "+(s.converged?"chiral":"vector");
+  badge.textContent = s.converged ? "a = c" : "not converged";
+  const av = Math.round(s.a.val*1e6)/1e6;
+  $("ts-a").textContent = av + " N²";
+  $("ts-ratio").textContent = Math.round(s.a_over_aN4*1e6)/1e6;
+  $("ts-vol").textContent = Math.round(s.vol_over_volS5*1e6)/1e6;
+  $("ts-reeb").textContent = "(" + s.reeb.join(", ") + ")";
+  $("ts-rsum").textContent = s.R_sum;
+  $("ts-rtags").innerHTML = s.corner_R.map(cr =>
+      `<span class="legtag">(${cr.corner[0]},${cr.corner[1]}): R=${cr.R}</span>`).join("");
+  if(s.note){ $("ts-note").textContent=s.note; $("ts-note").classList.remove("hide"); }
+  else $("ts-note").classList.add("hide");
 }
 
 $("grid").addEventListener("click", e=>{
