@@ -3,7 +3,8 @@
 import pytest
 
 from conformalmanifold.inverse import (
-    inverse_quiver, inverse_quiver_json, kasteleyn_newton_polygon)
+    inverse_quiver, inverse_quiver_json, kasteleyn_newton_polygon,
+    forward_extract, canonical_adjacency, phase_invariant)
 from conformalmanifold import toric as T
 from conformalmanifold.chartable import build_character_table
 from conformalmanifold.groups import cyclic
@@ -108,3 +109,40 @@ def test_kasteleyn_newton_polygon_recovers_diagram(label, verts, ngauge, nfields
     want = T.convex_hull(verts)
     assert T.normalized_area(newt) == T.normalized_area(want), label
     assert T.gl2z_equiv(newt, want), label
+
+
+# ---------------------------------------------------------------------------
+# forward extractor (DimerGraph -> BraneTiling) round-trip gate
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("label,verts,ngauge,nfields", CASES)
+def test_forward_extract_roundtrip(label, verts, ngauge, nfields):
+    """forward_extract(t.to_dimer()) must reproduce the Gulotta tiling: same
+    counts, consistent checks, identical quiver up to relabelling, and the same
+    Kasteleyn Newton polygon.  This gates every Seiberg-duality feature."""
+    t = inverse_quiver(verts)
+    r = forward_extract(t.to_dimer(), verts)
+    assert r.num_gauge == t.num_gauge == ngauge, label
+    assert r.num_fields == t.num_fields == nfields, label
+    assert r.num_white == t.num_white and r.num_black == t.num_black, label
+    c = r.checks
+    assert c["gauge_eq_2area"] and c["white_eq_black"], label
+    assert c["anomaly_free"] and c["toric_superpotential"], label
+    assert c["euler_V_minus_E_plus_F"] == 0, label
+    # same quiver up to node relabelling
+    assert canonical_adjacency(r.adjacency_int()) == \
+        canonical_adjacency(t.adjacency_int()), label
+    # same toric diagram (homology carried through the combinatorial map)
+    assert T.gl2z_equiv(kasteleyn_newton_polygon(r),
+                        kasteleyn_newton_polygon(t)), label
+
+
+def test_canonical_adjacency_permutation_stable():
+    """A node relabelling must not change the canonical adjacency key."""
+    import itertools
+    t = inverse_quiver([(-1, 0), (1, 0), (0, 1), (0, -1)])   # F0
+    A = t.adjacency_int()
+    n = len(A)
+    key = canonical_adjacency(A)
+    for p in list(itertools.permutations(range(n)))[:24]:
+        B = [[A[p[i]][p[j]] for j in range(n)] for i in range(n)]
+        assert canonical_adjacency(B) == key

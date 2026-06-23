@@ -113,6 +113,27 @@ def _crossings(ws, bases):
 
 
 @dataclass
+class DimerGraph:
+    """A brane tiling as a combinatorial map (ribbon graph) on T^2.
+
+    Bipartite white/black vertices, oriented bifundamental fields = edges (each
+    carrying an integer Z^2 homology cochain), and a *rotation system*: the
+    cyclic order of incident edges around every vertex.  This is the minimal
+    data Seiberg duality (urban renewal) acts on; `forward_extract` turns it back
+    into a BraneTiling (gauge faces + quiver + two-term superpotential).
+
+    The rotation order is taken straight from the boundary order of each tiling
+    vertex -- which is exactly the field order of its superpotential term -- so no
+    floating-point geometry is needed to recover the faces.
+    """
+    nW: int
+    nB: int
+    edges: list      # [{"w": wi, "b": bi, "h": [hx, hy]}], edge id = list index
+    rot_w: list      # [[edge_id, ...]] cyclic order of edges around each white vtx
+    rot_b: list      # [[edge_id, ...]] cyclic order of edges around each black vtx
+
+
+@dataclass
 class BraneTiling:
     """A consistent brane tiling (dimer) reconstructed from a toric diagram."""
     num_gauge: int
@@ -133,6 +154,23 @@ class BraneTiling:
 
     def adjacency_int(self):
         return [[int(v) for v in row] for row in self.adjacency]
+
+    def to_dimer(self) -> "DimerGraph":
+        """Reconstruct the combinatorial-map DimerGraph from this tiling.
+
+        The cyclic edge order around white vertex k is the field order of the
+        k-th positive (white) superpotential term, and around black vertex k the
+        k-th negative (black) term -- which `_try_tiling` builds from the cyclic
+        face-boundary order.  Edge id == the integer in its "X{id}" label.
+        """
+        edges = [{"w": f["white"], "b": f["black"], "h": list(f["homology"])}
+                 for f in self.fields]
+        pos_terms = [t for t in self.superpotential if t["sign"] > 0]
+        neg_terms = [t for t in self.superpotential if t["sign"] < 0]
+        rot_w = [[int(lbl[1:]) for lbl in t["fields"]] for t in pos_terms]
+        rot_b = [[int(lbl[1:]) for lbl in t["fields"]] for t in neg_terms]
+        return DimerGraph(nW=self.num_white, nB=self.num_black,
+                          edges=edges, rot_w=rot_w, rot_b=rot_b)
 
 
 def _try_tiling(hull, ws, bases):
@@ -392,6 +430,222 @@ def _try_tiling(hull, ws, bases):
         white_glob=white_glob, black_glob=black_glob, field_pos=field_pos,
         tiling_edges=tiling_edges, checks=checks,
     )
+
+
+# ===========================================================================
+# forward extractor: a DimerGraph (combinatorial map) -> a BraneTiling
+# ===========================================================================
+# A *dart* is (edge_id, +1) [oriented white->black] or (edge_id, -1)
+# [black->white].  alpha swaps the two darts of an edge; sigma rotates to the
+# next edge around the base vertex; faces (gauge nodes) = orbits of phi=sigma o
+# alpha.  These two module constants fix the orientation convention; they are
+# pinned by the round-trip gate (forward_extract(t.to_dimer()) == t) and must not
+# be changed without re-running tests/test_inverse.py.
+_FACE_HAND = 1          # +1 = "next in rotation", -1 = "previous"
+_ARROW_FROM_WHITE_DART = True   # src = face carrying the white->black dart
+
+
+def _trace_faces(dimer, hand):
+    """Orbits of phi = sigma o alpha over all darts.  Returns (faces, faceof):
+    faces is a list of dart lists, faceof maps each dart to its face index."""
+    posw = [{e: i for i, e in enumerate(r)} for r in dimer.rot_w]
+    posb = [{e: i for i, e in enumerate(r)} for r in dimer.rot_b]
+
+    def sigma(d):
+        e, s = d
+        if s == 1:
+            w = dimer.edges[e]["w"]
+            r, i = dimer.rot_w[w], posw[w][e]
+        else:
+            b = dimer.edges[e]["b"]
+            r, i = dimer.rot_b[b], posb[b][e]
+        return (r[(i + hand) % len(r)], s)
+
+    def phi(d):
+        return sigma((d[0], -d[1]))
+
+    seen, faces, faceof = set(), [], {}
+    darts = [(e, s) for e in range(len(dimer.edges)) for s in (1, -1)]
+    for d in darts:
+        if d in seen:
+            continue
+        orb, x = [], d
+        while x not in seen:
+            seen.add(x)
+            orb.append(x)
+            x = phi(x)
+        fid = len(faces)
+        faces.append(orb)
+        for y in orb:
+            faceof[y] = fid
+    return faces, faceof
+
+
+def _spanning_layout(dimer):
+    """A schematic planar layout (universal-cover float positions) for drawing.
+
+    Spanning-tree placement that splays each vertex's edges by their rotation
+    index; not metrically faithful (mutated phases have no canonical embedding)
+    but renders the connectivity.  Returns (white_glob, black_glob)."""
+    wpos = [None] * dimer.nW
+    bpos = [None] * dimer.nB
+    adj = {("W", w): [] for w in range(dimer.nW)}
+    adj.update({("B", b): [] for b in range(dimer.nB)})
+    for e, ed in enumerate(dimer.edges):
+        adj[("W", ed["w"])].append(("B", ed["b"], e))
+        adj[("B", ed["b"])].append(("W", ed["w"], e))
+    if dimer.nW:
+        wpos[0] = (0.0, 0.0)
+    stack = [("W", 0)] if dimer.nW else []
+    placed = {("W", 0)} if dimer.nW else set()
+    while stack:
+        kind, idx = stack.pop()
+        base = wpos[idx] if kind == "W" else bpos[idx]
+        rot = (dimer.rot_w[idx] if kind == "W" else dimer.rot_b[idx])
+        deg = max(len(rot), 1)
+        for (nk, ni, e) in adj[(kind, idx)]:
+            if (nk, ni) in placed:
+                continue
+            ang = 2 * math.pi * (rot.index(e) / deg)
+            if kind == "B":
+                ang += math.pi
+            npos = (base[0] + 0.6 * math.cos(ang), base[1] + 0.6 * math.sin(ang))
+            if nk == "W":
+                wpos[ni] = npos
+            else:
+                bpos[ni] = npos
+            placed.add((nk, ni))
+            stack.append((nk, ni))
+    wpos = [p if p is not None else (0.0, 0.0) for p in wpos]
+    bpos = [p if p is not None else (0.5, 0.5) for p in bpos]
+    return wpos, bpos
+
+
+def forward_extract(dimer, vertices) -> "BraneTiling":
+    """Re-derive a BraneTiling (gauge faces + quiver + two-term superpotential)
+    from a combinatorial-map DimerGraph, independent of the zig-zag arrangement.
+
+    This is the inverse of `BraneTiling.to_dimer` on the base phase, and the
+    extractor for any Seiberg-dual phase produced by `urban_renewal`.
+    """
+    hull = convex_hull(vertices)
+    a2 = normalized_area(hull)
+    E = len(dimer.edges)
+    nW, nB = dimer.nW, dimer.nB
+
+    faces, faceof = _trace_faces(dimer, _FACE_HAND)
+    gauge = list(range(len(faces)))            # every ribbon face is a gauge node
+    gindex = {g: i for i, g in enumerate(gauge)}
+
+    # quiver: each edge borders the faces of its two darts; orient white->black
+    A = [[0] * len(gauge) for _ in range(len(gauge))]
+    field_edges = {}
+    for e in range(E):
+        fw = faceof[(e, 1)]                     # face carrying the white->black dart
+        fb = faceof[(e, -1)]
+        if _ARROW_FROM_WHITE_DART:
+            src, tgt = gindex[fw], gindex[fb]
+        else:
+            src, tgt = gindex[fb], gindex[fw]
+        A[src][tgt] += 1
+        field_edges[e] = (src, tgt)
+
+    anomaly_free = all(sum(A[i]) == sum(A[j][i] for j in range(len(gauge)))
+                       for i in range(len(gauge)))
+
+    # superpotential: white vertex (+) / black vertex (-), fields in rotation order
+    W = ([{"sign": 1, "fields": [f"X{e}" for e in dimer.rot_w[w]]}
+          for w in range(nW)]
+         + [{"sign": -1, "fields": [f"X{e}" for e in dimer.rot_b[b]]}
+            for b in range(nB)])
+    cp, cm = Counter(), Counter()
+    for w in range(nW):
+        for e in dimer.rot_w[w]:
+            cp[e] += 1
+    for b in range(nB):
+        for e in dimer.rot_b[b]:
+            cm[e] += 1
+    toric_W = all(cp[e] == 1 and cm[e] == 1 for e in range(E))
+
+    tiling_edges = [[dimer.edges[e]["w"], dimer.edges[e]["b"]] for e in range(E)]
+    fields = [{"label": f"X{e}", "src": field_edges[e][0], "tgt": field_edges[e][1],
+               "white": dimer.edges[e]["w"], "black": dimer.edges[e]["b"],
+               "homology": list(dimer.edges[e]["h"])} for e in range(E)]
+
+    white_glob, black_glob = _spanning_layout(dimer)
+    white_pos = [(x % 1, y % 1) for (x, y) in white_glob]
+    black_pos = [(x % 1, y % 1) for (x, y) in black_glob]
+    field_pos = []
+    for e in range(E):
+        w, b = dimer.edges[e]["w"], dimer.edges[e]["b"]
+        mx = (white_glob[w][0] + black_glob[b][0]) / 2
+        my = (white_glob[w][1] + black_glob[b][1]) / 2
+        field_pos.append((mx % 1, my % 1))
+
+    checks = {
+        "gauge_eq_2area": len(gauge) == a2,
+        "fields_eq_sum_det": True,             # base value lives on the seed phase
+        "white_eq_black": nW == nB,
+        "anomaly_free": anomaly_free,
+        "toric_superpotential": toric_W,
+        "euler_V_minus_E_plus_F": (nW + nB) - E + len(gauge),
+    }
+    return BraneTiling(
+        num_gauge=len(gauge), num_fields=E, num_white=nW, num_black=nB,
+        adjacency=A, fields=fields, superpotential=W,
+        white_pos=white_pos, black_pos=black_pos,
+        white_glob=white_glob, black_glob=black_glob, field_pos=field_pos,
+        tiling_edges=tiling_edges, checks=checks,
+    )
+
+
+# ===========================================================================
+# phase invariant: distinguish Seiberg-dual toric phases up to node relabelling
+# ===========================================================================
+def _wl_hash(A, rounds=None):
+    """A Weisfeiler-Lehman colour-refinement hash of a directed multigraph
+    adjacency -- a permutation-invariant fingerprint, used as a tractable
+    fallback canonical key when brute-force node permutation is too expensive."""
+    n = len(A)
+    if n == 0:
+        return ()
+    rounds = rounds if rounds is not None else n
+    colour = [hash(()) for _ in range(n)]
+    for _ in range(rounds):
+        new = []
+        for i in range(n):
+            out = tuple(sorted((A[i][j], colour[j]) for j in range(n) if A[i][j]))
+            inc = tuple(sorted((A[j][i], colour[j]) for j in range(n) if A[j][i]))
+            new.append(hash((colour[i], out, inc)))
+        colour = new
+    return tuple(sorted(colour))
+
+
+def canonical_adjacency(A):
+    """A canonical (node-relabelling-invariant) key for a quiver adjacency matrix.
+
+    Exact (lexicographically minimal over all node permutations) for small
+    quivers; falls back to a WL colour-refinement hash for large node counts
+    where brute force is infeasible.  Used to dedup Seiberg-dual phases.
+    """
+    from itertools import permutations
+    n = len(A)
+    if n <= 8:
+        best = None
+        for p in permutations(range(n)):
+            flat = tuple(A[p[i]][p[j]] for i in range(n) for j in range(n))
+            if best is None or flat < best:
+                best = flat
+        return ("exact", best)
+    return ("wl", n, _wl_hash(A))
+
+
+def phase_invariant(tiling):
+    """Dedup key for a toric (Seiberg-dual) phase: gauge count, field count, and
+    the canonical quiver adjacency.  Phases of one diagram share a Kasteleyn
+    Newton polygon, so that is a sanity check, not a discriminator."""
+    return (tiling.num_gauge, tiling.num_fields,
+            canonical_adjacency(tiling.adjacency_int()))
 
 
 def inverse_quiver(vertices, max_attempts: int = 400, max_gauge: int = 60):
