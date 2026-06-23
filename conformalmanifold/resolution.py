@@ -287,6 +287,64 @@ def flop(pts, tris, edge):
 
 
 # ----------------------------------------------------------------------------
+# blow-up: chamfer a (singular) corner of the toric diagram
+# ----------------------------------------------------------------------------
+def blowup_corner(points, corner):
+    """Blow up the toric diagram at the convex-hull corner `corner=(x,y)`.
+
+    Geometrically this *chamfers* the corner: it cuts the corner vertex off with
+    a new boundary edge, stepping one primitive lattice unit inward along each of
+    the two edges meeting at the corner.  Physically it (partially) resolves the
+    local singularity sitting at that corner -- the C^2/Z_k x C corner is replaced
+    by an exceptional edge -- which changes the diagram, its (p,q) web, the gauge-
+    group count (= 2 x area) and the whole reconstructed quiver.
+
+    A *smooth* (unimodular) corner -- both adjacent edges of lattice length 1, as
+    in C^3 or the conifold square -- has nothing to resolve; blowing it up raises
+    ValueError so the UI can mark only genuinely singular corners as actionable.
+
+    `points` : the diagram's lattice points (any of the user's placed points).
+    `corner` : an (x, y) that must be a convex-hull vertex of `points`.
+    Returns the new diagram point set, sorted -- the corner removed, the two
+    chamfer points added -- ready to feed back through the pipeline."""
+    cx, cy = int(round(corner[0])), int(round(corner[1]))
+    pset = {(int(round(x)), int(round(y))) for (x, y) in points}
+    hull = convex_hull(pset)
+    if len(hull) < 3:
+        raise ValueError("need a 2-dimensional toric diagram (>=3 corners) to "
+                         "blow up a corner")
+    if (cx, cy) not in hull:
+        raise ValueError(f"({cx},{cy}) is not a corner (convex-hull vertex) of "
+                         "the toric diagram")
+    n = len(hull)
+    i = hull.index((cx, cy))
+    V = hull[i]
+    P = hull[(i - 1) % n]                 # CCW-previous neighbouring corner
+    Nx = hull[(i + 1) % n]                # CCW-next neighbouring corner
+
+    def step(frm, to):
+        """primitive lattice step from `frm` toward `to`, and the edge's length."""
+        dx, dy = to[0] - frm[0], to[1] - frm[1]
+        g = gcd(abs(dx), abs(dy)) or 1
+        return (dx // g, dy // g), g
+
+    aP, gP = step(V, P)
+    aN, gN = step(V, Nx)
+    if gP == 1 and gN == 1:
+        raise ValueError(f"corner ({cx},{cy}) is smooth (unimodular) -- there is "
+                         "no singularity there to blow up")
+    w1 = (V[0] + aP[0], V[1] + aP[1])     # one step toward P (== P iff gP == 1)
+    w2 = (V[0] + aN[0], V[1] + aN[1])     # one step toward N (== N iff gN == 1)
+    pset.discard(V)
+    pset.add(w1)
+    pset.add(w2)
+    new_hull = convex_hull(pset)
+    if len(new_hull) < 3 or normalized_area(new_hull) == 0:
+        raise ValueError(f"blowing up corner ({cx},{cy}) degenerates the diagram")
+    return sorted(pset)
+
+
+# ----------------------------------------------------------------------------
 # the dual (p,q) web
 # ----------------------------------------------------------------------------
 def circumcenter(a, b, c):

@@ -109,6 +109,12 @@
   .preset{background:var(--panel2);color:var(--accent);border:1px solid var(--line);
           padding:5px 11px;font-size:12.5px;font-weight:500}
   .preset:hover{border-color:var(--accent)}
+  .preset.on{background:#2a230f;border-color:var(--warn);color:var(--warn)}
+  /* blow-up handles: a glowing ring + plus over each singular (blow-up-able) corner */
+  .blowhandle{fill:rgba(255,180,84,.16);stroke:var(--warn);stroke-width:2;cursor:pointer}
+  .blowhandle:hover{fill:rgba(255,180,84,.42)}
+  .blowplus{fill:var(--warn);font-size:15px;font-weight:700;text-anchor:middle;
+            dominant-baseline:central;pointer-events:none}
   .legtag{display:inline-block;background:#10261c;border:1px solid #2f7d57;color:#56d39b;
           border-radius:7px;padding:2px 8px;margin:2px 4px 0 0;font-size:12.5px;
           font-family:ui-monospace,Consolas,monospace}
@@ -254,7 +260,9 @@
       <span style="color:var(--warn)">interior</span> lattice points are both shown.
       The diagram is <b>triangulated</b> into a resolution (toric phase); click a
       highlighted internal edge to <b>flop</b> it. The dual <b>(p,q) 5-brane web</b>
-      for that triangulation is drawn on the right.
+      for that triangulation is drawn on the right. Toggle
+      <span style="color:var(--warn)">blow-up mode</span> to <b>chamfer a singular
+      corner</b> (resolve it) and recompute the whole quiver.
     </div>
     <div class="exrow" style="margin:0 0 12px">
       presets:
@@ -268,6 +276,11 @@
       <button type="button" class="preset" data-pts="0,0;3,0;0,3">Z&#8323;&times;Z&#8323;</button>
       <button type="button" class="preset" data-pts="">clear</button>
     </div>
+    <div class="exrow" style="margin:0 0 12px">
+      <button type="button" id="blowmode" class="preset">&oplus; Blow up a corner</button>
+      <span class="help" id="blowhint" style="margin:0">off &mdash; toggle on, then click a
+        glowing &oplus; corner handle to blow it up (chamfer &rarr; resolve that corner).</span>
+    </div>
 
     <div class="builder">
       <div class="card">
@@ -276,6 +289,8 @@
         <div class="help" style="margin-top:10px">
           click a <span style="color:var(--accent2)">cyan dashed</span> internal edge
           to flop the triangulation. click any lattice dot to add/remove a diagram point.
+          in <span style="color:var(--warn)">blow-up mode</span>, click a glowing
+          <span style="color:var(--warn)">&oplus;</span> corner to chamfer it.
         </div>
       </div>
       <div class="card">
@@ -355,6 +370,13 @@
         Gulotta brane-tiling inverse: the toric diagram alone &rarr; a consistent dimer
         &rarr; gauge nodes (tiling faces), bifundamentals (edges), and a toric superpotential
         (white/black vertices). Works for any polygon, no library entry needed.
+      </div>
+      <div id="iv-phase-nav" class="hide" style="display:flex;align-items:center;gap:10px;margin:0 0 12px;flex-wrap:wrap">
+        <span class="k" style="margin:0">toric (Seiberg-dual) phase</span>
+        <span class="badge geom" id="iv-phase-label"></span>
+        <button id="iv-phase-cycle" type="button">next phase &#9654;</button>
+        <span class="help" style="margin:0">Seiberg duality on a square gauge node (dimer "urban renewal"):
+          same toric diagram (same Kasteleyn Newton polygon), a different quiver frame.</span>
       </div>
       <div class="grid" style="grid-template-columns:1fr 1fr">
         <div>
@@ -577,6 +599,7 @@ loadGroups().then(compute);
 /* ===================== Toric (p,q)-web builder ===================== */
 const toricPts = new Set(["0,0","1,0","1,1","0,1"]);   // default: conifold
 let currentTri = null;             // current triangulation (index-triples)
+let blowMode = false;              // blow-up mode: click a corner to chamfer it
 
 // the lattice window auto-fits the current diagram (+ a clickable margin) so the
 // diagram fills the panel instead of floating in a fixed grid.
@@ -598,6 +621,22 @@ const sx = gx => TM.ox + (gx-tView.lo[0])*TM.sc;
 const sy = gy => 420 - (TM.oy + (gy-tView.lo[1])*TM.sc);
 const gKey = (x,y) => `${x},${y}`;
 const eKey = (a,b) => a<b ? `${a}_${b}` : `${b}_${a}`;
+
+// greatest common divisor (for primitive-edge / lattice-length tests)
+function jsGcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ [a,b]=[b,a%b]; } return a||1; }
+
+// which hull corners can be blown up: a corner is "smooth" (nothing to resolve)
+// only when BOTH adjacent edges have lattice length 1, so we exclude those.
+function blowableCorners(hull){
+  const n=hull.length, out=[];
+  if(n<3) return out;
+  for(let i=0;i<n;i++){
+    const V=hull[i], P=hull[(i-1+n)%n], Nx=hull[(i+1)%n];
+    const gP=jsGcd(V[0]-P[0], V[1]-P[1]), gN=jsGcd(Nx[0]-V[0], Nx[1]-V[1]);
+    if(gP>1 || gN>1) out.push(V);
+  }
+  return out;
+}
 
 function jsHull(points){           // monotone chain -> CCW, no collinear
   const pts = points.map(s=>s.split(",").map(Number)).sort((p,q)=>p[0]-q[0]||p[1]-q[1]);
@@ -635,18 +674,29 @@ function emptyGrid(){
   return s;
 }
 
-// fetch the toric data; flopEdge=[i,j] sends the current triangulation + flop
-async function buildToric(flopEdge){
+// fetch the toric data. opts.flop=[i,j] sends the current triangulation + flop;
+// opts.blowup=[x,y] chamfers that corner (rewriting the diagram → resync points).
+async function buildToric(opts){
+  opts = opts || {};
   const pts = [...toricPts];
   if(jsHull(pts).length < 3){ tEmpty(); return; }
   let url = "/api/toric_web?pts="+encodeURIComponent(pts.join(";"));
-  if(flopEdge && currentTri){
+  if(opts.flop && currentTri){
     url += "&tri="+currentTri.map(t=>t.join("-")).join(".");
-    url += "&flop="+flopEdge.join(",");
+    url += "&flop="+opts.flop.join(",");
   }
+  if(opts.blowup){ url += "&blowup="+opts.blowup.join(","); }
   try{
     const d = await (await fetch(url)).json();
-    if(d.error){ tEmpty(d.error); return; }
+    if(d.error){
+      // a blow-up of a non-singular corner is rejected: keep the diagram, just warn.
+      if(opts.blowup){ flashBlowHint(d.error); return; }
+      tEmpty(d.error); return;
+    }
+    if(opts.blowup){                 // the diagram changed → resync the point set
+      toricPts.clear();
+      for(const p of d.diagram.input_points) toricPts.add(gKey(p[0],p[1]));
+    }
     currentTri = d.resolution.triangulation;
     renderGrid(d); renderWeb(d); renderResult(d);
   }catch(e){ tEmpty(String(e)); }
@@ -685,6 +735,14 @@ function renderGrid(d){
       s+=`<circle class="${resCls[key]}" data-gx="${gx}" data-gy="${gy}" cx="${sx(gx)}" cy="${sy(gy)}" r="6"/>`;
     else
       s+=`<circle class="gridpt" data-gx="${gx}" data-gy="${gy}" cx="${sx(gx)}" cy="${sy(gy)}" r="3.6"/>`;
+  }
+  // blow-up handles: a glowing ⊕ over each singular (blow-up-able) hull corner
+  if(blowMode){
+    for(const V of blowableCorners(hull)){
+      const x=sx(V[0]), y=sy(V[1]);
+      s+=`<circle class="blowhandle" data-blowup="${V[0]},${V[1]}" cx="${x}" cy="${y}" r="12"/>`;
+      s+=`<text class="blowplus" x="${x}" y="${y}">+</text>`;
+    }
   }
   $("grid").innerHTML = s;
 }
@@ -742,7 +800,15 @@ function renderResult(d){
   else $("t-note").classList.add("hide");
 
   renderToricScft(d.scft);
-  renderInverse(d.inverse_quiver);
+  // toric (Seiberg-dual) phases: cycle them if the backend enumerated >1, else
+  // fall back to the single seed quiver.
+  const ph = d.inverse_phases;
+  _ivPhases = (ph && ph.available && ph.phases && ph.phases.length)
+    ? ph.phases : [d.inverse_quiver];
+  let start = 0;
+  const m = (location.hash.match(/(?:^|[#&])phase=(\d+)/));
+  if(m){ start = Math.min(parseInt(m[1],10)||0, _ivPhases.length-1); }
+  showPhase(start);
 
   if(d.quiver){
     const q=d.quiver;
@@ -793,10 +859,36 @@ function drawTiling(t, svgId){
   $(svgId).innerHTML = s;
 }
 
+// the enumerated toric phases for the current diagram, and the one on screen
+let _ivPhases = [];
+let _ivPhaseIdx = 0;
+
+function showPhase(idx){
+  if(!_ivPhases.length) return;
+  _ivPhaseIdx = ((idx % _ivPhases.length) + _ivPhases.length) % _ivPhases.length;
+  const nav=$("iv-phase-nav");
+  if(_ivPhases.length > 1){
+    nav.classList.remove("hide");
+    const cur=_ivPhases[_ivPhaseIdx];
+    $("iv-phase-label").textContent =
+      `phase ${_ivPhaseIdx+1} / ${_ivPhases.length}  ·  ${cur.num_fields} fields`;
+  } else {
+    nav.classList.add("hide");
+  }
+  // reflect the phase in the hash without clobbering an existing token
+  // (e.g. #pts=...): drop any old phase=, then append the current one.
+  const toks = location.hash.replace(/^#/,"").split("&")
+    .filter(t => t && !t.startsWith("phase="));
+  toks.push("phase=" + _ivPhaseIdx);
+  history.replaceState(null, "", "#" + toks.join("&"));
+  renderInverse(_ivPhases[_ivPhaseIdx]);
+}
+
 function renderInverse(iv){
   const card=$("t-invcard");
   if(!iv || !iv.available){
     card.classList.remove("hide");
+    $("iv-phase-nav").classList.add("hide");
     $("iv-badge").className="badge vector"; $("iv-badge").textContent="unavailable";
     $("iv-gauge").textContent = $("iv-fields").textContent = $("iv-w").textContent = "—";
     $("iv-checks").innerHTML="";
@@ -862,8 +954,12 @@ function renderToricScft(s){
 
 $("grid").addEventListener("click", e=>{
   const t=e.target;
+  if(t.dataset && t.dataset.blowup!==undefined){          // blow up (chamfer) a corner
+    buildToric({blowup: t.dataset.blowup.split(",").map(Number)});
+    return;
+  }
   if(t.dataset && t.dataset.edge!==undefined){            // flop a flippable edge
-    buildToric(t.dataset.edge.split(",").map(Number));
+    buildToric({flop: t.dataset.edge.split(",").map(Number)});
     return;
   }
   if(t.dataset && t.dataset.gx!==undefined){              // add/remove a diagram point
@@ -872,13 +968,39 @@ $("grid").addEventListener("click", e=>{
     buildToric();                                         // polygon changed -> default phase
   }
 });
-document.querySelectorAll("button.preset").forEach(b=>{
+
+// blow-up mode toggle + a transient hint when a corner can't be blown up
+let _blowHintTimer = null;
+function flashBlowHint(msg){
+  const h=$("blowhint");
+  h.textContent = msg;
+  h.style.color = "var(--warn)";
+  if(_blowHintTimer) clearTimeout(_blowHintTimer);
+  _blowHintTimer = setTimeout(syncBlowHint, 2600);
+}
+function syncBlowHint(){
+  const h=$("blowhint");
+  h.style.color = "";
+  h.textContent = blowMode
+    ? "ON — click a glowing ⊕ corner handle to blow it up (chamfer → resolve it); everything recomputes."
+    : "off — toggle on, then click a glowing ⊕ corner handle to blow it up (chamfer → resolve that corner).";
+}
+$("blowmode").addEventListener("click", ()=>{
+  blowMode = !blowMode;
+  $("blowmode").classList.toggle("on", blowMode);
+  syncBlowHint();
+  buildToric();                       // re-render to show/hide the corner handles
+});
+// only the diagram presets carry data-pts; the blow-up toggle shares .preset
+// styling but must NOT clear the diagram, so scope the handler by [data-pts].
+document.querySelectorAll("button.preset[data-pts]").forEach(b=>{
   b.addEventListener("click", ()=>{
     toricPts.clear(); currentTri=null;
     for(const p of (b.dataset.pts||"").split(";")) if(p) toricPts.add(p.trim());
     buildToric();
   });
 });
+$("iv-phase-cycle").addEventListener("click", ()=> showPhase(_ivPhaseIdx + 1));
 
 /* ---- tab switching ---- */
 function showTab(which){
@@ -891,10 +1013,12 @@ function showTab(which){
 }
 $("tab-orb").addEventListener("click", ()=>showTab("orb"));
 $("tab-tor").addEventListener("click", ()=>showTab("tor"));
-if(location.hash === "#toric") showTab("tor");   // deep-link to the builder
-if(location.hash.startsWith("#pts=")){           // deep-link to a specific diagram
+// deep-links may carry a trailing &phase=k (added when cycling phases); strip it
+const _hashNoPhase = location.hash.replace(/&phase=\d+/,"");
+if(_hashNoPhase === "#toric") showTab("tor");    // deep-link to the builder
+if(_hashNoPhase.startsWith("#pts=")){            // deep-link to a specific diagram
   toricPts.clear(); currentTri=null;
-  for(const p of decodeURIComponent(location.hash.slice(5)).split(";")) if(p) toricPts.add(p.trim());
+  for(const p of decodeURIComponent(_hashNoPhase.slice(5)).split(";")) if(p) toricPts.add(p.trim());
   showTab("tor");
 }
 </script>

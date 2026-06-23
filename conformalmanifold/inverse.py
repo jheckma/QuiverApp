@@ -600,6 +600,174 @@ def forward_extract(dimer, vertices) -> "BraneTiling":
 
 
 # ===========================================================================
+# homology solver: edge Z^2 cochain of a DimerGraph from the rotation system
+# ===========================================================================
+def _integer_kernel(rows, ncols):
+    """A *saturated* integer basis of  {x in Z^ncols : rows . x = 0}.
+
+    Integer column-echelon (unimodular column ops via Euclid + swaps) on the
+    constraint matrix `rows`; the columns that reduce to zero carry, in the
+    accumulated transform `U`, a basis of the integer kernel.  Because every
+    operation is unimodular, that basis is automatically saturated -- it spans
+    the *full* integer lattice of the rational nullspace, not a sublattice (the
+    distinction that makes the Kasteleyn Newton polygon come out at the right
+    area rather than an integer multiple of it)."""
+    m = len(rows)
+    # A as columns (each length m); U as columns (each length ncols) = identity
+    A = [[int(rows[i][j]) for i in range(m)] for j in range(ncols)]
+    U = [[1 if i == j else 0 for i in range(ncols)] for j in range(ncols)]
+
+    def sub(k, r, q):                        # col_k -= q * col_r  (A and U)
+        for i in range(m):
+            A[k][i] -= q * A[r][i]
+        for i in range(ncols):
+            U[k][i] -= q * U[r][i]
+
+    def swap(a, b):
+        A[a], A[b] = A[b], A[a]
+        U[a], U[b] = U[b], U[a]
+
+    r = 0
+    for i in range(m):
+        for k in range(r + 1, ncols):
+            while A[k][i] != 0:
+                if A[r][i] == 0:
+                    swap(r, k)
+                    continue
+                sub(k, r, A[k][i] // A[r][i])
+                if A[k][i] != 0:
+                    swap(r, k)
+        if r < ncols and A[r][i] != 0:
+            r += 1
+        if r == ncols:
+            break
+    return [U[j] for j in range(r, ncols)]   # zero columns -> kernel basis
+
+
+def _newton_from_dimer(dimer, hx, hy):
+    """Newton polygon of det K for a DimerGraph carrying the cochain (hx, hy).
+
+    K[w][b] = sum over edges w->b of x^{hx} y^{hy}; the extremal monomials of
+    det K come from unique perfect matchings, so they never cancel."""
+    nW, nB = dimer.nW, dimer.nB
+    if nW != nB:
+        return None
+    K = [[dict() for _ in range(nB)] for _ in range(nW)]
+    for e, ed in enumerate(dimer.edges):
+        key = (hx[e], hy[e])
+        cell = K[ed["w"]][ed["b"]]
+        cell[key] = cell.get(key, 0) + 1
+
+    def pmul(a, b):
+        out = {}
+        for (i, j), u in a.items():
+            for (k, l), v in b.items():
+                p = (i + k, j + l)
+                out[p] = out.get(p, 0) + u * v
+        return out
+
+    from itertools import permutations
+    det = {}
+    for perm in permutations(range(nW)):
+        sign, used = 1, [False] * nW
+        for i in range(nW):
+            if used[i]:
+                continue
+            j, ln = i, 0
+            while not used[j]:
+                used[j] = True
+                j, ln = perm[j], ln + 1
+            if ln % 2 == 0:
+                sign = -sign
+        term, ok = {(0, 0): sign}, True
+        for i in range(nW):
+            cell = K[i][perm[i]]
+            if not cell:
+                ok = False
+                break
+            term = pmul(term, cell)
+        if ok:
+            for k, v in term.items():
+                det[k] = det.get(k, 0) + v
+    exps = [k for k, v in det.items() if v != 0]
+    if len(exps) < 3:
+        return None
+    return convex_hull(exps)
+
+
+def solve_homology(dimer, target_hull):
+    """Solve the edge Z^2 homology cochain of a DimerGraph from its rotation
+    system alone -- the data Seiberg duality (urban renewal) leaves us with,
+    where no geometric embedding (and so no zig-zag displacement) is available.
+
+    Returns a list of (hx, hy) per edge such that the Kasteleyn Newton polygon
+    equals `target_hull` up to GL(2,Z) + translation, or None if no such cochain
+    exists (i.e. the dimer is not a toric phase of that diagram).
+
+    Method: (1) every gauge face (a phi-orbit of darts) must close --
+    sum_d  s_d * h(edge_d) = 0, the cocycle condition; (2) gauge-fix a spanning
+    tree of the bipartite white/black graph to h = 0 (kills the coboundary
+    freedom); (3) the residual solution lattice is the rank-2 H^1(T^2) = Z^2 of
+    torus periods -- take a *saturated* integer basis (u, v) and sweep small
+    unimodular GL(2,Z) recombinations as the two cochain components until the
+    Newton polygon certifies.  Mirrors the spanning-tree lift of `_try_tiling`,
+    but driven by the combinatorial map instead of the zig-zag arrangement."""
+    from itertools import product
+
+    E = len(dimer.edges)
+    faces, _ = _trace_faces(dimer, _FACE_HAND)
+
+    rows = []
+    for orb in faces:                        # face-closure (cocycle) constraints
+        row = [0] * E
+        for (e, s) in orb:
+            row[e] += s
+        rows.append(row)
+
+    # spanning tree over the bipartite white/black graph -> pin tree edges to 0
+    adj = {}
+    for e, ed in enumerate(dimer.edges):
+        u, v = ("W", ed["w"]), ("B", ed["b"])
+        adj.setdefault(u, []).append((v, e))
+        adj.setdefault(v, []).append((u, e))
+    seen, tree = {("W", 0)}, set()
+    stack = [("W", 0)]
+    while stack:
+        u = stack.pop()
+        for (v, e) in adj.get(u, []):
+            if v not in seen:
+                seen.add(v)
+                tree.add(e)
+                stack.append(v)
+    for e in tree:
+        row = [0] * E
+        row[e] = 1
+        rows.append(row)
+
+    basis = _integer_kernel(rows, E)
+    if len(basis) != 2:                      # not a genus-1 (torus) cochain space
+        return None
+    u, v = basis
+
+    # Because `_integer_kernel` returns a *saturated* basis of H^1 (= the full
+    # period lattice, not a sublattice), the cochain (u, v) already yields a
+    # Newton polygon GL(2,Z)-equivalent to any valid frame's -- so the identity
+    # frame certifies whenever the dimer is a genuine toric phase.  We try it
+    # first; the small unimodular sweep is then only defensive (e.g. a frame in
+    # which `_newton_from_dimer` degenerates), never the primary path.
+    frames = [(1, 0, 0, 1)] + [(a, b, c, d)
+              for a, b, c, d in product(range(-2, 3), repeat=4)
+              if a * d - b * c in (1, -1) and (a, b, c, d) != (1, 0, 0, 1)]
+    for a, b, c, d in frames:
+        hx = [a * u[i] + b * v[i] for i in range(E)]
+        hy = [c * u[i] + d * v[i] for i in range(E)]
+        poly = _newton_from_dimer(dimer, hx, hy)
+        if poly is not None and gl2z_equiv(poly, target_hull):
+            return [(hx[i], hy[i]) for i in range(E)]
+    return None
+
+
+# ===========================================================================
 # phase invariant: distinguish Seiberg-dual toric phases up to node relabelling
 # ===========================================================================
 def _wl_hash(A, rounds=None):
@@ -646,6 +814,133 @@ def phase_invariant(tiling):
     Newton polygon, so that is a sanity check, not a discriminator."""
     return (tiling.num_gauge, tiling.num_fields,
             canonical_adjacency(tiling.adjacency_int()))
+
+
+# ===========================================================================
+# Seiberg duality (urban renewal) and toric-phase enumeration
+# ===========================================================================
+def urban_renewal(dimer, face_orbit, vertices):
+    """Seiberg duality (the dimer "urban renewal" / square move) on one square
+    gauge face -- the move that takes a toric quiver to a *different* toric phase
+    of the same Calabi-Yau (a flop is a Kähler move and leaves the dimer fixed;
+    this is the one that genuinely changes it).
+
+    A square gauge face (a length-4 phi-orbit) has its four boundary edges
+    alternating incoming (X) / outgoing (Y).  Each of its four corners pairs one
+    Y with one X into a *meson* M = Y.X.  The dual tiling:
+      * the surviving corner vertex keeps its off-face edges plus that meson;
+      * a new opposite-colour cubic vertex {M, rev(Y), rev(X)} carries the meson
+        superpotential coupling, with the X,Y arrows reversed.
+    The new edges have no embedding, so their homology is re-solved from the
+    rotation system (`solve_homology`).  Returns the dualized BraneTiling (with a
+    Newton-certified homology cochain) or None if the face is not a clean square
+    / the dual does not certify.
+    """
+    target_hull = convex_hull(vertices)
+    edges = dimer.edges
+    Y = [e for (e, s) in face_orbit if s == 1]      # outgoing from this face
+    X = [e for (e, s) in face_orbit if s == -1]     # incoming to this face
+    if len(Y) != 2 or len(X) != 2:
+        return None
+    facE = set(Y) | set(X)
+
+    corners = []                                    # (colour, vtx, Yedge, Xedge)
+    for w in range(dimer.nW):
+        onf = [e for e in facE if edges[e]["w"] == w]
+        if len(onf) == 2 and any(e in Y for e in onf) and any(e in X for e in onf):
+            corners.append(("W", w, [e for e in onf if e in Y][0],
+                            [e for e in onf if e in X][0]))
+    for b in range(dimer.nB):
+        onf = [e for e in facE if edges[e]["b"] == b]
+        if len(onf) == 2 and any(e in Y for e in onf) and any(e in X for e in onf):
+            corners.append(("B", b, [e for e in onf if e in Y][0],
+                            [e for e in onf if e in X][0]))
+    if len(corners) != 4:
+        return None
+
+    # label-level membership: surviving corners + new cubic meson vertices
+    Wsets, Bsets = {}, {}
+    for ci, (colour, v, ye, xe) in enumerate(corners):
+        m = f"m_{ye}_{xe}"
+        offv = [f"e{e}" for e in range(len(edges))
+                if e not in facE and edges[e]["w" if colour == "W" else "b"] == v]
+        (Wsets if colour == "W" else Bsets)[f"S{ci}"] = offv + [m]
+        (Bsets if colour == "W" else Wsets)[f"N{ci}"] = [m, f"y_{ye}", f"x_{xe}"]
+
+    wv = {l: vlab for vlab, labs in Wsets.items() for l in labs}
+    bv = {l: vlab for vlab, labs in Bsets.items() for l in labs}
+    if set(wv) != set(bv) or len(Wsets) != len(Bsets):
+        return None                                 # not a genuine two-term dual
+    elabels = sorted(wv)
+    wn, bn = list(Wsets), list(Bsets)
+    widx = {v: i for i, v in enumerate(wn)}
+    bidx = {v: i for i, v in enumerate(bn)}
+    eidx = {l: i for i, l in enumerate(elabels)}
+    base_edges = [{"w": widx[wv[l]], "b": bidx[bv[l]], "h": [0, 0]} for l in elabels]
+
+    # the cyclic order within each vertex's term is not fixed by membership;
+    # search the orderings for the genus-1, anomaly-free, toric embedding whose
+    # homology Newton-certifies back to the toric diagram.
+    from itertools import permutations, product
+    cyc = lambda lst: [[lst[0]] + list(p) for p in permutations(lst[1:])]
+    Wopts = [cyc(Wsets[v]) for v in wn]
+    Bopts = [cyc(Bsets[v]) for v in bn]
+    for wsel in product(*Wopts):
+        for bsel in product(*Bopts):
+            rot_w = [[eidx[l] for l in o] for o in wsel]
+            rot_b = [[eidx[l] for l in o] for o in bsel]
+            dim = DimerGraph(len(wn), len(bn),
+                             [dict(e) for e in base_edges], rot_w, rot_b)
+            c = forward_extract(dim, vertices).checks
+            if not (c["euler_V_minus_E_plus_F"] == 0 and c["gauge_eq_2area"]
+                    and c["anomaly_free"] and c["toric_superpotential"]):
+                continue
+            sol = solve_homology(dim, target_hull)
+            if sol is None:
+                continue
+            for i, e in enumerate(dim.edges):       # install the solved cochain
+                e["h"] = list(sol[i])
+            return forward_extract(dim, vertices)   # re-extract WITH homology
+    return None
+
+
+def enumerate_toric_phases(vertices, max_phases: int = 12):
+    """All distinct toric (Seiberg-dual) phases of a toric diagram, found by
+    breadth-first urban-renewal on every square gauge face and de-duplicated by
+    `phase_invariant`.  Phase 0 is the Gulotta seed (`inverse_quiver`).
+
+    Returns a list of BraneTilings, one per phase.  C3 / the conifold have a
+    single phase; F0 has two ({8 fields, square faces} and {12, hexagonal})."""
+    seed = inverse_quiver(vertices)
+    phases = [seed]
+    keys = {phase_invariant(seed)}
+    frontier = [seed]
+    while frontier and len(phases) < max_phases:
+        nxt = []
+        for tiling in frontier:
+            dimer = tiling.to_dimer()
+            faces, _ = _trace_faces(dimer, _FACE_HAND)
+            for orb in faces:
+                if len(orb) != 4:                   # only square faces dualize
+                    continue
+                dual = urban_renewal(dimer, orb, vertices)
+                if dual is None:
+                    continue
+                k = phase_invariant(dual)
+                if k in keys:
+                    continue
+                if not gl2z_equiv(kasteleyn_newton_polygon(dual),
+                                  convex_hull(vertices)):
+                    continue                        # reject Newton-polygon drift
+                keys.add(k)
+                phases.append(dual)
+                nxt.append(dual)
+                if len(phases) >= max_phases:
+                    break
+            if len(phases) >= max_phases:
+                break
+        frontier = nxt
+    return phases
 
 
 def inverse_quiver(vertices, max_attempts: int = 400, max_gauge: int = 60):
@@ -742,13 +1037,8 @@ def kasteleyn_newton_polygon(tiling: BraneTiling):
     return convex_hull(exps)
 
 
-def inverse_quiver_json(vertices, **kw) -> dict:
-    """JSON-friendly inverse-algorithm result for the web API (or an error)."""
-    try:
-        t = inverse_quiver(vertices, **kw)
-    except ValueError as exc:
-        return {"available": False, "error": str(exc)}
-    # independent certificate: Newton polygon of det K == input toric diagram
+def _tiling_json(t, vertices) -> dict:
+    """Serialise one BraneTiling (a single toric phase) for the web API."""
     newton = kasteleyn_newton_polygon(t)
     checks = dict(t.checks)
     checks["kasteleyn_newton_matches"] = gl2z_equiv(newton, convex_hull(vertices))
@@ -776,4 +1066,28 @@ def inverse_quiver_json(vertices, **kw) -> dict:
         },
         "checks": checks,
         "note": t.note,
+    }
+
+
+def inverse_quiver_json(vertices, **kw) -> dict:
+    """JSON-friendly inverse-algorithm result for the web API (or an error)."""
+    try:
+        t = inverse_quiver(vertices, **kw)
+    except ValueError as exc:
+        return {"available": False, "error": str(exc)}
+    return _tiling_json(t, vertices)
+
+
+def inverse_phases_json(vertices, max_phases: int = 12) -> dict:
+    """All distinct toric (Seiberg-dual) phases of the diagram, for the web API:
+    a list of serialised tilings (phase 0 = the Gulotta seed), so the toric tab
+    can cycle between them.  Each is independently Newton-certified."""
+    try:
+        phases = enumerate_toric_phases(vertices, max_phases=max_phases)
+    except ValueError as exc:
+        return {"available": False, "error": str(exc)}
+    return {
+        "available": True,
+        "num_phases": len(phases),
+        "phases": [_tiling_json(t, vertices) for t in phases],
     }

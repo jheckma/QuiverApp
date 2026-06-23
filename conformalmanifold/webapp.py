@@ -11,6 +11,7 @@ Endpoints
     GET /api/toric_web?pts=x0,y0;x1,y1;...   toric diagram -> (p,q) web + quiver
         optional &tri=a-b-c.d-e-f...  (current triangulation, index-triples)
         optional &flop=i,j            (flop this internal edge before rendering)
+        optional &blowup=x,y          (blow up / chamfer this corner first)
 """
 
 from __future__ import annotations
@@ -72,6 +73,17 @@ def _parse_edge(s: str):
     return [int(ij[0]), int(ij[1])]
 
 
+def _parse_point(s: str):
+    """'x,y' -> [x, y]  (a single lattice point, e.g. a corner), or None."""
+    s = (s or "").strip()
+    if not s:
+        return None
+    xy = s.split(",")
+    if len(xy) != 2:
+        raise ValueError(f"bad point {s!r}; expected 'x,y'")
+    return [int(xy[0]), int(xy[1])]
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):  # quiet
         pass
@@ -130,7 +142,8 @@ class Handler(BaseHTTPRequestHandler):
                 pts = _parse_points(q.get("pts", [""])[0])
                 tri = _parse_triangulation(q.get("tri", [""])[0])
                 flop = _parse_edge(q.get("flop", [""])[0])
-                self._json(api.summarize_toric_web(pts, tri, flop))
+                blowup = _parse_point(q.get("blowup", [""])[0])
+                self._json(api.summarize_toric_web(pts, tri, flop, blowup))
             except (ValueError, KeyError) as exc:
                 self._json({"error": str(exc)}, code=400)
             except Exception as exc:  # noqa: BLE001

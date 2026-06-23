@@ -9,7 +9,7 @@ from .conformal import conformal_manifold_dim
 from .groups import MatrixGroup, cyclic, make_group
 from .quiver import build_quiver
 from .scft import orbifold_scft_json, toric_field_R_charges, toric_scft_json
-from .inverse import inverse_quiver_json
+from .inverse import inverse_quiver_json, inverse_phases_json
 
 
 def _c(z) -> dict:
@@ -78,7 +78,8 @@ def summarize_freeform(expr: str) -> dict:
 # ===========================================================================
 # Toric "web builder": a user-drawn toric diagram -> dual (p,q) web + quiver
 # ===========================================================================
-def summarize_toric_web(points, triangulation=None, flop_edge=None) -> dict:
+def summarize_toric_web(points, triangulation=None, flop_edge=None,
+                        blowup=None) -> dict:
     """Given the lattice points of a toric diagram (the dot/grid diagram a
     physicist draws), return its convex-hull toric diagram, a triangulation
     (resolution / toric phase) of it, the dual (p,q) 5-brane web for that
@@ -90,11 +91,19 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None) -> dict:
                       point order) -- the current phase to render; a default
                       triangulation is computed if omitted or inconsistent.
     `flop_edge`     : optional [i, j] internal edge to flop in `triangulation`
-                      before rendering."""
+                      before rendering.
+    `blowup`        : optional [x, y] corner to blow up (chamfer) BEFORE doing
+                      anything else; it rewrites the diagram (the returned
+                      `diagram.input_points` is the new point set) and the
+                      triangulation/flop are recomputed from scratch for it."""
     from . import toric as T
     from . import resolution as Rz
 
     pts = [(int(round(x)), int(round(y))) for (x, y) in points]
+    if blowup is not None:
+        pts = Rz.blowup_corner(pts, blowup)   # raises ValueError on a bad corner
+        triangulation = None                  # the diagram changed; start fresh
+        flop_edge = None
     hull = T.convex_hull(pts)
     if len(hull) < 3:
         raise ValueError("need at least 3 non-collinear lattice points to span a "
@@ -152,6 +161,18 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None) -> dict:
         # alone (works for ANY polygon, independent of the named library below).
         "inverse_quiver": inverse_quiver_json(hull, max_gauge=40),
     }
+
+    # Seiberg-dual *toric phases* (cycle them in the UI).  The phase search is
+    # combinatorial in the face degrees, so only run it for small diagrams; for
+    # larger ones the single seed phase above stands.
+    if area2 <= 6:
+        out["inverse_phases"] = inverse_phases_json(hull)
+    else:
+        out["inverse_phases"] = {
+            "available": False,
+            "reason": "phase enumeration limited to small diagrams "
+                      "(2*area <= 6); showing the seed phase only",
+        }
 
     # per-field superconformal R-charges: needs both the corner R-charges (scft)
     # and the reconstructed dimer (zig-zag legs + superpotential).
