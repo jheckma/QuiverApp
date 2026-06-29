@@ -71,6 +71,10 @@
   .bignum{font-size:54px;font-weight:740;color:var(--accent2);line-height:1}
   .formula{color:var(--mut);font-size:13px}
   .formula code{color:var(--ink);background:var(--panel2);padding:1px 6px;border-radius:6px}
+  .cmf{margin-top:11px;font-size:13px;color:var(--mut);line-height:1.95}
+  .cmf .ex{color:var(--ink);background:var(--panel2);border:1px solid var(--line);
+           border-radius:6px;padding:2px 7px;font-family:ui-monospace,Consolas,monospace}
+  .cmf b{color:var(--accent2);font-weight:700}
   table.adj{border-collapse:collapse;margin-top:6px;font-variant-numeric:tabular-nums}
   table.adj td,table.adj th{border:1px solid var(--line);padding:4px 7px;text-align:center;
         font-size:12.5px;min-width:26px}
@@ -184,28 +188,27 @@
       <div class="bignum" id="dim">&mdash;</div>
       <div>
         <div style="font-size:15px;font-weight:600">complex dimension of the conformal manifold</div>
-        <div class="formula" id="formula"></div>
       </div>
     </div>
 
     <div class="grid" style="margin-top:18px">
       <div class="card">
-        <h2>Step 1 &mdash; Group</h2>
+        <h2>Group &nbsp;&Gamma;</h2>
         <div class="kv"><span class="k">&Gamma;</span><span class="v" id="g-name"></span></div>
         <div class="kv"><span class="k">description</span><span class="v" id="g-desc"></span></div>
         <div class="kv"><span class="k">order |&Gamma;|</span><span class="v" id="g-order"></span></div>
         <div class="kv"><span class="k">abelian</span><span class="v" id="g-ab"></span></div>
         <div class="kv"><span class="k">generators</span><span class="v" id="g-gen"></span></div>
 
-        <h2 style="margin-top:18px">Step 3 &mdash; Conformal manifold</h2>
+        <h2 style="margin-top:18px">Conformal manifold</h2>
         <div class="kv"><span class="k">S = &sum;<sub>g</sub> fix<sub>Q</sub>(g)</span><span class="v" id="c-S"></span></div>
         <div class="kv"><span class="k">per-coordinate fixed</span><span class="v" id="c-perdir"></span></div>
-        <div class="kv"><span class="k">dim<sub>&#8450;</sub> M = S &minus; 1</span><span class="v" id="c-dim"></span></div>
+        <div class="cmf" id="c-formula"></div>
         <div class="note hide" id="c-note"></div>
       </div>
 
       <div class="card">
-        <h2>Step 2 &mdash; McKay quiver &nbsp; <span id="q-badge" class="badge"></span></h2>
+        <h2>McKay quiver &nbsp; <span id="q-badge" class="badge"></span></h2>
         <div class="kv"><span class="k">gauge nodes (irreps)</span><span class="v" id="q-nodes"></span></div>
         <div class="kv"><span class="k">irrep dims</span><span class="v" id="q-dims"></span></div>
         <div class="kv"><span class="k">bifundamentals</span><span class="v" id="q-arrows"></span></div>
@@ -436,12 +439,29 @@ async function compute(){
   }
 }
 
+// Build the conformal-manifold formula line, correct for whatever Gamma is:
+//   cyclic Z_n(a,b,c)         -> dim_C M = S - 1 = gcd(n,a)+gcd(n,b)+gcd(n,c) - 1
+//   other diagonal (abelian)  -> dim_C M = S - 1 = (p1+p2+p3) - 1   (per-axis fixed counts)
+//   non-abelian (no per-dir)  -> dim_C M = S - 1 = <S> - 1
+function conformalFormula(g, c){
+  const S = c.fixed_sum, dim = c.dim_conf;
+  const m = /^Z_?(\d+)\((-?\d+),\s*(-?\d+),\s*(-?\d+)\)$/.exec(g.name || "");
+  let mid;
+  if(m){                              // genuine cyclic: show the real gcd terms
+    mid = [m[2], m[3], m[4]].map(w => `gcd(${m[1]},${w})`).join(" + ");
+  } else if(c.per_direction){         // any other diagonal action: per-axis sum
+    mid = "(" + c.per_direction.join(" + ") + ")";
+  } else {                            // non-abelian: no diagonal decomposition
+    mid = String(S);
+  }
+  return `dim<sub>&#8450;</sub> M = S &minus; 1 = `
+       + `<span class="ex">${mid} &minus; 1</span> = <b>${dim}</b>`
+       + ` &nbsp;&middot;&nbsp; independent of N`;
+}
+
 function render(d){
   const g=d.group, q=d.quiver, c=d.conformal;
   $("dim").textContent = c.dim_conf;
-  let f = `= S &minus; 1 = ${c.fixed_sum} &minus; 1`;
-  if(c.per_direction) f += ` &nbsp;=&nbsp; gcd-sum ${c.per_direction.join("+")} &minus; 1`;
-  $("formula").innerHTML = f + " &nbsp;(independent of N)";
 
   $("g-name").textContent=g.name; $("g-desc").textContent=g.description;
   $("g-order").textContent=g.order; $("g-ab").textContent=g.abelian?"yes":"no";
@@ -449,7 +469,7 @@ function render(d){
 
   $("c-S").textContent=c.fixed_sum;
   $("c-perdir").textContent = c.per_direction ? `[${c.per_direction.join(", ")}]` : "—";
-  $("c-dim").textContent=c.dim_conf;
+  $("c-formula").innerHTML = conformalFormula(g, c);
   if(c.note){ $("c-note").textContent=c.note; $("c-note").classList.remove("hide"); }
   else $("c-note").classList.add("hide");
 
