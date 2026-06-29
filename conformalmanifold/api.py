@@ -90,6 +90,7 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None) -> dict:
                       before rendering."""
     from . import toric as T
     from . import resolution as Rz
+    from . import fived as F
 
     pts = [(int(round(x)), int(round(y))) for (x, y) in points]
     hull = T.convex_hull(pts)
@@ -144,6 +145,15 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None) -> dict:
                        "= # external (p,q) legs)",
             "num_gauge_groups": area2,         # = 2 * area of the toric diagram
         },
+    }
+
+    # 5d SCFT / AdS6 reading of the same diagram (kept separate from the 4d quiver).
+    factors = F.one_form_symmetry(hull)
+    out["fived"] = {
+        "rank": I,                          # Coulomb-branch dim = # interior points
+        "flavor_rank": F.flavor_rank(B),    # flavor-symmetry rank = # mass params = B - 3
+        "one_form_factors": factors,        # invariant factors, e.g. [] / [3] / [2,2]
+        "one_form_label": F.abelian_label(factors),
     }
 
     geom = T.identify_toric(hull)

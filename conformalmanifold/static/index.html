@@ -311,6 +311,13 @@
       </div>
     </div>
 
+    <div id="t-fived-card" class="card hide" style="margin-top:18px">
+      <h2>AdS<sub>6</sub> &nbsp;/&nbsp; CFT<sub>5</sub></h2>
+      <div class="kv"><span class="k">rank &nbsp;(Coulomb-branch dim = # interior pts)</span><span class="v" id="t-rank"></span></div>
+      <div class="kv"><span class="k">flavor-symmetry rank &nbsp;(= # mass parameters)</span><span class="v" id="t-flavor"></span></div>
+      <div class="kv"><span class="k">1-form symmetry &nbsp;(1-form part of the defect group)</span><span class="v" id="t-oneform"></span></div>
+    </div>
+
     <div class="foot">a toric diagram (lattice polygon) &harr; its (p,q) web &harr; a quiver gauge theory
       &nbsp;&middot;&nbsp; dim<sub>&#8450;</sub> M = B &minus; 1 &nbsp;&middot;&nbsp; #gauge = 2&times;area</div>
   </div><!-- /view-toric -->
@@ -642,6 +649,13 @@ function renderWeb(d){
   $("t-web").innerHTML = s;
 }
 
+// Finite abelian group from invariant factors -> pretty unicode (ℤ₃, ℤ₂ × ℤ₂, trivial).
+function prettyAbelian(factors){
+  if(!factors || !factors.length) return "trivial";
+  const sub = s => String(s).replace(/[0-9]/g, ch => "₀₁₂₃₄₅₆₇₈₉"[+ch]);
+  return factors.map(f => "ℤ" + sub(f)).join(" × ");
+}
+
 function renderResult(d){
   $("t-empty").classList.add("hide"); $("t-body").classList.remove("hide");
   const c=d.conformal, g=d.diagram, w=d.web, id=d.identified, res=d.resolution;
@@ -658,6 +672,17 @@ function renderResult(d){
   const note = id.note || "";
   if(note){ $("t-note").textContent=note; $("t-note").classList.remove("hide"); }
   else $("t-note").classList.add("hide");
+
+  // 5d SCFT / AdS6 reading of the same diagram (guarded: a stale/older backend may omit it)
+  const f=d.fived;
+  if(f){
+    $("t-fived-card").classList.remove("hide");
+    $("t-rank").textContent = f.rank;
+    $("t-flavor").textContent = f.flavor_rank ?? "—";
+    $("t-oneform").innerHTML = prettyAbelian(f.one_form_factors);
+  } else {
+    $("t-fived-card").classList.add("hide");
+  }
 
   if(d.quiver){
     const q=d.quiver;
