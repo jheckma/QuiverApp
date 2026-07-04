@@ -63,14 +63,180 @@ per-vector clearing + sweep); **production already uses the saturated
 (index 1, the "unreachable" `(0,1,-1)` is reachable) and pinned by
 `test_integer_kernel_is_saturated`.
 
-## NEXT STEPS (open; the feature works without them)
-1. **Mass integration (2-valent vertices).** `urban_renewal` does not yet
-   integrate out massive mesons (delete a 2-valent vertex, merge its 2 edges,
-   `h_new = h_in + h_out`). So dP2/dP3 (which need it) currently report only the
-   seed phase. Add it to reach their extra phases (dP2→2, dP3→4 in the literature).
-2. Verify dP2/dP3 phase counts against the literature once (1) lands (xfail today).
-3. Optional: surface a typed status from `solve_homology` (it returns bare
-   `None` for both "graph broken, dim≠2" and "no certifying frame") for triage.
+## NEXT STEPS — ALL RESOLVED 2026-07-03 (mass integration + two real bugs)
+
+**dP2 → 2 phases (11, 13 fields) and dP3 → 4 phases (12, 14, 14, 18) now
+enumerate correctly and match the literature quivers EXACTLY** (verified
+adjacency-by-adjacency against the FHH dP2 incidence matrices, hep-th/0104259
+§5.2, and the FFHH dP3 Models I–IV superpotentials, hep-th/0205144 §4.1 —
+including the two genuinely distinct 14-field models II/III).  Built with a
+2-agent team (literature researcher + adversarial code reviewer) feeding the
+main session.  Four changes in `conformalmanifold/inverse.py`:
+
+1. **`integrate_masses(dimer)`** (new): contracts every 2-valent vertex (a
+   quadratic mass term) — deletes the vertex + its 2 edges, merges the two
+   opposite-colour neighbours, splicing rotations `cut(r1,e1)+cut(r2,e2)`;
+   iterates (contractions can cascade); homologies reset and re-solved.
+   Reviewer verdict: SOUND (standard oriented ribbon-graph contraction,
+   chirality-covariant, no orientation freedom).
+2. **`urban_renewal` carries the WHOLE dimer** (was the real dP2/dP3 blocker,
+   not mass integration): the old label-level construction only built the 4
+   corner vertices, so any diagram with spectator vertices (everything bigger
+   than F0) failed the membership check and returned None.  Spectators now keep
+   their rotations verbatim; survivors get the meson spliced in place of the
+   adjacent (Y,X) pair.
+3. **Dart-level corner detection** (reviewer CONFIRMED-BUG): corners are the 4
+   dart transitions of the face orbit, not 4 distinct vertices — SPP's square
+   face visits one black vertex twice and was undualizable under vertex-level
+   detection.  SPP's square move now works and is self-dual (regression test).
+4. **`phase_invariant` identifies charge conjugation** (transpose adjacency):
+   reversing every arrow is the same theory, and the literature counts it as
+   the same phase (FFHH treats arrow reversal as a quiver symmetry).  Without
+   this the enumeration double-counted: dP2 gave 3, dP3 gave 6 — every extra
+   was verified to be a transpose duplicate.
+   Also: the cubic-vertex orientation is now *derived* (white corner
+   [M,revX,revY], black [M,revY,revX] for `_FACE_HAND=+1`, per the reviewer's
+   census) and tried first; the 16-way sweep remains only as a defensive
+   fallback.  ~10× faster (dP3 full enumeration 0.2 s).
+
+Tests: 294 pass (`tests/test_inverse.py` 67 — new: literature-adjacency match
+for dP2 + dP3 Models I–IV, conjugation dedup, integrate_masses round-trip/noop,
+SPP self-duality, enumerate params extended to dP0/dP1/dP2/dP3).  Visual QA
+(`_qa_phases.py`, headless Chrome): dP2 cycles 2 phases, dP3 cycles 4, tilings
+render, `&phase=k` deep-links, zero console errors.  The api.py phases gate
+stays at 2·area ≤ 6 (covers dP2=5, dP3=6; a2=8 enumerations take ~13 s).
+
+## ADDED 2026-07-03 (same session, later): exact orbifold seeds + INTERACTIVE urban renewal (309 tests)
+
+1. **`_orbifold_honeycomb`** (inverse.py): any TRIANGLE diagram (= abelian orbifold
+   C³/Γ, |Γ| = 2·area) now gets its brane tiling built EXACTLY -- the C³ honeycomb on a
+   quotient torus, with the right index-|Γ| sublattice found by Hermite-form enumeration
+   and certified by the new **`_strand_polygon`** zig-zag certificate (linear time at
+   any size, vs the O(n!) Kasteleyn permanent).  Fixes the quiver/dimer being
+   UNAVAILABLE on Z3xZ3 / Z4xZ4 (the random Gulotta placement search fails there).
+   Exact homology, geometric honeycomb embedding (drawn in the renderer's
+   white -> black−h convention, parent-frame offsets, Gauss-reduced sublattice
+   basis so the hexagons are near-regular instead of sheared -- the first cut had
+   frame/sign bugs that drew a crisscross mess), and per-field zig-zag leg pairs
+   (`_trace_strands` + `_assign_strand_legs`, aligned to the hull's CCW leg order by
+   GL(2,Z)-invariant group-size/det sequences) so per-field R-charges still compute.
+2. **Interactive Seiberg duality**: `square_gauge_faces` (every square face = N_f=2N_c
+   node = available urban-renewal move), `dualize_path`/`dualize_path_json` (apply a
+   user-chosen sequence of face moves from the seed or from toric phase k; ValueError
+   on non-square faces / non-certifying moves), `_normalize_tiling` (face-trace node
+   numbering, positions + zig-zag annotations grafted; seed and phases all normalized
+   so face indices are consistent).  api `dualize=`/`dualize_phase=` params; webapp
+   `&dualize=f1.f2...`; UI: a "Seiberg-dualize (urban renewal)" row on the inverse card
+   with one button per square face of the DISPLAYED tiling, path badge
+   (seed → n0 → n3), reset, `&dualize=` deep-link; phase nav hidden while a path is
+   active; per-field R-charges skipped on dualized tilings (no zig-zag data -- guard in
+   api).  Also fixed a latent CSS bug: `.hide` now `!important` (inline display:flex on
+   the nav/dualize rows used to override it).
+
+## RENDER FIXES 2026-07-03 (evening, 310 tests)
+- **Quiver arrows were invisible**: every quiver SVG defined the same marker id
+  `#ah`; `url(#ah)` resolves document-wide to the FIRST one -- inside the hidden
+  orbifold-tab svg, so no arrowheads rendered anywhere.  Markers are now unique
+  per svg (`ah-<svgId>`).
+- **Dualized dimers drew a tangle**: urban-renewal duals used the schematic
+  spanning-tree layout.  New `_harmonic_torus_layout(t)`: the harmonic/Tutte
+  embedding on the flat torus using the SOLVED homology classes (minimise
+  sum |x_w - x_b + h|^2, Laplacian solve, one vertex pinned) -- F0 phase II now
+  renders as the textbook square-octagon lattice.  Regression test pins the
+  centroid property.  (Seed tilings keep their exact geometric embeddings:
+  Gulotta arrangement / quotient honeycomb.)
+- Repaired UTF-8 double-encoding of index.html caused by a PowerShell rewrite
+  (see memory: no-powershell-text-rewrite).
+
+## NODE-IDENTITY FIX 2026-07-03 (late, 314 tests)
+User caught it on F0: dualizing node 2 displayed the same LABELLED quiver as
+dualizing node 0 -- all four duals were correct as abstract phases, but
+`forward_extract` renumbers gauge faces in trace order with no memory of the
+original labels, so the mesons/reversed arrows attached to the wrong node ids.
+Fix: **heritage relabelling** in `urban_renewal` -- every gauge face except the
+dualized one persists and keeps its off-square edges, so the dual's faces are
+matched back through the surviving edge darts (via `integrate_masses(...,
+return_map=True)` to survive mass integration), the one dual face with no
+surviving dart is the dualized node, and the tiling's nodes are permuted to
+their heritage ids (`BraneTiling.face_to_node`; composed along paths via
+`node_of_face`).  `square_gauge_faces` / `dualize_path` now speak displayed
+node ids.  Pinned by `test_dualize_preserves_node_identity`: every square-node
+dual of F0/dP1/dP2/dP3 equals the LABELLED field-theory Seiberg rule (reverse
+flavors at k, mesons between neighbours, integrate out vector-like pairs), and
+dualizing the same node twice is the labelled identity.  On a failed heritage
+match the tiling falls back to trace order (still a correct phase).
+
+## GENERAL SEIBERG DUALITY + CLICK-THE-NODE UI 2026-07-03 (night, 315 tests)
+User: allow Seiberg duality on ANY node (even leaving the toric/dimer regime),
+click the quiver node itself (no button row), and say "Dimer unavailable /
+non-toric phase" when there is no dimer.  Done:
+- **`quiver_seiberg(A, ranks, k)`**: general quiver-level duality, ranks in
+  units of N -- N_c -> N_f − N_c (rank-weighted N_f), flavors at k reversed,
+  mesons A[i][k]·A[k][j], massive vector-like pairs integrated out; ValueError
+  if the dual rank would be <= 0.
+- **`seiberg_path(vertices, path, start_phase)` -> `DualState`**: each move on
+  a square face (all ranks equal) rides dimer urban renewal (tiling kept,
+  heritage labels); the first move on any other node switches to pure quiver
+  tracking (tiling = None, reason recorded).  `dualize_path_json` returns
+  either the full tiling json (`dimer_available: true`, ranks all 1) or a
+  quiver-only payload (`dimer_available: false`, adjacency + ranks +
+  rank-weighted anomaly check + reason).  dP0 node 0: ranks (2,1,1), the
+  (3,3,6) exceptional-collection dual; involution returns the seed.  Pinned by
+  `test_general_seiberg_beyond_dimer_regime`.
+- **UI**: quiver NODES are the click targets (`data-qnode` on the reconstructed
+  quiver; hover highlight; N_f = 2N_c nodes GLOW orange = toric/dimer moves);
+  the button row is gone (path badge + reset remain).  Non-toric states render
+  the quiver with rank labels ("2N" under the node), rank-weighted anomaly
+  check, and "Dimer unavailable — non-toric phase" in the tiling panel;
+  superpotential section hidden (not tracked beyond the dimer regime).
+- Fixed: api field_R guard KeyError on quiver-only payloads (`inv["fields"]`).
+
+## W TRACKING THROUGH GENERAL DUALITIES 2026-07-03 (late night, 316 tests)
+User: the W computation was already available elsewhere -- ported and adapted
+the DWZ quiver-mutation-with-potential machinery into
+**`conformalmanifold/wmutation.py`** (self-contained; generalized to terms
+passing through k multiple times, exact rational coefficients, and
+`WMutationError` on unhandled structure instead of asserts):
+mesons M[ab] for a: i->k, b: k->j; dual quarks a*/b*; every consecutive
+through-k pair in a W word replaced by its meson; Delta term  + M[ab] b* a*;
+then F-term integration of all quadratic (mass) terms.  One convention trap:
+the dimer's black-vertex (negative) W terms come out in REVERSE cyclic order --
+`tiling_potential` normalizes every word to composition order (tgt = next src).
+`seiberg_path` now threads (arrows, W) through the whole path: refreshed from
+the dimer on toric UR moves, DWZ-mutated on general moves; the mutated arrows'
+adjacency is AUTHORITATIVE when it differs from the min-subtraction rule (a
+vector-like pair without a mass term must not cancel).  Counts pinned by test:
+dP0 dual = 9 cubic terms, involution back to the seed's 6; F0 [0,1] = 16,
+[0,1,1] = F0-phase-II's 8.  JSON: `superpotential_w` (coeff + cyclic word);
+UI shows it under "superpotential (tracked through the Seiberg dualities)"
+with mesons/dual-quark labels; hidden only when the tracker degrades (reason
+appended to the note).
+
+## SCRUB: the app has ZERO references to the problem-generation platform
+(user requirement, verified by repo-wide grep); the only sibling-repo mentions
+left are local filesystem paths in these HANDOFF notes.  `_qa/` (headless-QA
+scratch) is now gitignored and the stale chrome profiles were deleted.
+
+## BOTH QUIVER DISPLAYS CLICKABLE 2026-07-03 (final touch, 316 tests)
+The TOP "Quiver gauge theory" (named-library) card is now also a live Seiberg
+interface: once the reconstruction arrives, `syncTopQuiver` redraws it from the
+SAME interactive state as the inverse card (same node numbering, clickable
+nodes, glowing N_f = 2N_c, rank labels) and syncs its node/arrow/W-term counts
+(W count from the tracked potential in non-toric states).  The geometry badge
+and the Leigh-Strassler dim_C row keep the seed values -- both are
+duality-invariant.  One shared click handler (`_quiverNodeClick`) serves
+`#t-quiver` and `#iv-quiver`.  Before the async reconstruction lands, the top
+card shows the plain library drawing (not yet clickable) -- by design.
+
+### Still open (optional, from the adversarial review)
+1. Typed status from `solve_homology` (bare None for two different failures).
+2. `phase_invariant` ignores the superpotential — two phases with isomorphic
+   quivers but different W would merge (no known instance for small dPs).
+3. n > 8 nodes falls back to a WL hash (heuristic) in `canonical_adjacency`.
+4. The Newton certificate checks hull equality only (no zigzag-consistency
+   test); empirically no spurious dual passes on the six geometries censused,
+   but there is no theorem.
+5. `max_phases=12` cap truncates mid-frontier on huge diagrams (fine ≤ a2=8).
 
 ## Dev scratch
 `_seiberg_meson_prototype.py` — the original hand-built F0 move, now superseded

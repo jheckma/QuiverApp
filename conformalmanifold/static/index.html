@@ -44,7 +44,8 @@
         padding:11px 20px;font-size:14px;font-weight:650;cursor:pointer}
   button:hover{filter:brightness(1.08)}
   button:disabled{opacity:.5;cursor:default}
-  .hide{display:none}
+  /* !important so .hide beats inline display:flex on toggled rows */
+  .hide{display:none!important}
   .err{background:#2a1416;border:1px solid #6b2330;color:#ffb3b3;
        padding:12px 16px;border-radius:10px;margin:12px 0}
   .grid{display:grid;grid-template-columns:1.05fr .95fr;gap:18px}
@@ -81,6 +82,12 @@
   .node circle{fill:var(--panel2);stroke:var(--accent);stroke-width:1.6}
   .node.big circle{stroke:var(--accent2);stroke-width:2.2}
   .node text{fill:var(--ink);font-size:11px;text-anchor:middle;dominant-baseline:central}
+  /* clickable Seiberg-duality nodes; .sq = square face (dimer UR move) */
+  .node.clk circle{cursor:pointer}
+  .node.clk text{cursor:pointer}
+  .node.clk:hover circle{fill:#20304d}
+  .node.sq circle{stroke:var(--warn);stroke-width:2.4;
+                  filter:drop-shadow(0 0 4px rgba(255,180,84,.55))}
   .edge{stroke:#566a8f;stroke-width:1.6;fill:none}
   .note{color:var(--warn);font-size:12.5px;margin-top:10px}
   .foot{color:var(--mut);font-size:12px;margin-top:22px;text-align:center}
@@ -110,11 +117,18 @@
           padding:5px 11px;font-size:12.5px;font-weight:500}
   .preset:hover{border-color:var(--accent)}
   .preset.on{background:#2a230f;border-color:var(--warn);color:var(--warn)}
-  /* blow-up handles: a glowing ring + plus over each singular (blow-up-able) corner */
+  /* blow-up handles: a glowing ⊕ over each exceptional point (adds a divisor) */
   .blowhandle{fill:rgba(255,180,84,.16);stroke:var(--warn);stroke-width:2;cursor:pointer}
   .blowhandle:hover{fill:rgba(255,180,84,.42)}
   .blowplus{fill:var(--warn);font-size:15px;font-weight:700;text-anchor:middle;
             dominant-baseline:central;pointer-events:none}
+  /* blow-down handles: a glowing ⊖ over each smooth (contractible) corner */
+  .blowhandle.down{fill:rgba(86,211,155,.16);stroke:var(--accent2)}
+  .blowhandle.down:hover{fill:rgba(86,211,155,.42)}
+  .blowhandle.down + .blowplus{fill:var(--accent2)}
+  .busy{display:inline-block;margin-left:8px;color:var(--accent);font-size:11px;
+        font-weight:600;text-transform:none;letter-spacing:0;animation:pulse 1s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
   .legtag{display:inline-block;background:#10261c;border:1px solid #2f7d57;color:#56d39b;
           border-radius:7px;padding:2px 8px;margin:2px 4px 0 0;font-size:12.5px;
           font-family:ui-monospace,Consolas,monospace}
@@ -125,6 +139,10 @@
   .triehit{stroke:transparent;stroke-width:14;cursor:pointer}
   .bpt{fill:var(--accent2)}          /* boundary lattice point */
   .ipt{fill:var(--warn)}             /* interior lattice point */
+  .unres{opacity:.28}                /* unresolved (blown-down) divisor */
+  /* residual orbifold singularity: a non-unimodular cell of the partial res. */
+  .singcell{fill:rgba(255,107,107,.16);stroke:rgba(255,107,107,.55);
+            stroke-width:1.4;stroke-dasharray:5 4}
   .wjunc{fill:var(--accent);stroke:#0b1020;stroke-width:1}
   .wedge{stroke:#7aa2ff;stroke-width:2}
   .wleg{stroke:var(--accent2);stroke-width:2}
@@ -260,9 +278,11 @@
       <span style="color:var(--warn)">interior</span> lattice points are both shown.
       The diagram is <b>triangulated</b> into a resolution (toric phase); click a
       highlighted internal edge to <b>flop</b> it. The dual <b>(p,q) 5-brane web</b>
-      for that triangulation is drawn on the right. Toggle
-      <span style="color:var(--warn)">blow-up mode</span> to <b>chamfer a singular
-      corner</b> (resolve it) and recompute the whole quiver.
+      for that triangulation is drawn on the right. Two distinct <b>blow-ups</b> are
+      available below: <b>resolve the singularity</b> (blow exceptional divisors of the
+      singular cone up/down at fixed diagram) or <b>blow up a point of the base
+      surface</b> (add a NEW exceptional P&sup1;, e.g. dP0&harr;dP1) &mdash; everything
+      recomputes.
     </div>
     <div class="exrow" style="margin:0 0 12px">
       presets:
@@ -276,21 +296,50 @@
       <button type="button" class="preset" data-pts="0,0;3,0;0,3">Z&#8323;&times;Z&#8323;</button>
       <button type="button" class="preset" data-pts="">clear</button>
     </div>
+    <div class="exrow" style="margin:0 0 6px;align-items:center">
+      <span class="help" style="margin:0;min-width:270px"><b>resolve the singularity</b>
+        (exceptional divisors, diagram fixed):</span>
+      <button type="button" id="resupmode" class="preset">&oplus; Blow up a divisor</button>
+      <button type="button" id="resdownmode" class="preset">&ominus; Blow down a divisor</button>
+    </div>
+    <div class="exrow" style="margin:0 0 6px;align-items:center">
+      <span class="help" style="margin:0;min-width:270px"><b>blow up a point of the surface</b>
+        (a NEW exceptional P&sup1;, diagram grows):</span>
+      <button type="button" id="blowmode" class="preset">&oplus; Blow up a point</button>
+      <button type="button" id="blowdownmode" class="preset">&ominus; Blow down a &minus;1-curve</button>
+    </div>
     <div class="exrow" style="margin:0 0 12px">
-      <button type="button" id="blowmode" class="preset">&oplus; Blow up a corner</button>
-      <span class="help" id="blowhint" style="margin:0">off &mdash; toggle on, then click a
-        glowing &oplus; corner handle to blow it up (chamfer &rarr; resolve that corner).</span>
+      <span class="help" id="blowhint" style="margin:0">off &mdash; pick one of the four
+        modes above, then click a glowing handle.  The two rows are DIFFERENT blow-ups:
+        resolving the singular cone vs adding a new P&sup1; to the base surface.</span>
     </div>
 
     <div class="builder">
       <div class="card">
-        <h2>Toric diagram &nbsp;&amp;&nbsp; triangulation (fan)</h2>
+        <h2>Toric diagram &nbsp;&amp;&nbsp; triangulation (fan)
+          <span id="t-busy" class="busy hide">recomputing&hellip;</span></h2>
         <svg id="grid" class="grid" viewBox="0 0 420 420"></svg>
         <div class="help" style="margin-top:10px">
           click a <span style="color:var(--accent2)">cyan dashed</span> internal edge
           to flop the triangulation. click any lattice dot to add/remove a diagram point.
-          in <span style="color:var(--warn)">blow-up mode</span>, click a glowing
-          <span style="color:var(--warn)">&oplus;</span> corner to chamfer it.
+          <br>a <b>blow-up</b> does one of TWO different things &mdash; the two button rows
+          above keep them separate:
+          <br>&bull; <b>resolve the singularity</b> (diagram fixed): each lattice point of
+          the diagram is an exceptional divisor of the singular cone.
+          <span style="color:var(--warn)">&oplus;</span> a dimmed point blows that divisor up;
+          <span style="color:var(--accent2)">&ominus;</span> blows it back down
+          (<span style="color:#ff6b6b">red-tinted cells</span> = residual orbifold
+          singularities).  All divisors down = the singular cone (e.g.
+          C&sup3;/Z<sub>M</sub>&times;Z<sub>N</sub>: one big cell, legs with multiplicity);
+          all up = the full crepant resolution (the default view).
+          <br>&bull; <b>blow up a point of the base surface</b>: adds a <b>NEW</b>
+          exceptional P&sup1; that was not there before &mdash; the diagram GROWS
+          (<span style="color:var(--warn)">&oplus;</span> outside the diagram inserts the ray
+          &nu;<sub>i</sub>+&nu;<sub>i+1</sub>; dP0&nbsp;&rarr;&nbsp;dP1&nbsp;&rarr;&nbsp;dP2
+          &nbsp;&rarr;&nbsp;dP3); <span style="color:var(--accent2)">&ominus;</span> on a
+          corner contracts a &minus;1-curve (F0 = P&sup1;&times;P&sup1; has none: minimal).
+          Needs a cone over a surface (exactly one interior point) &mdash; C&sup3; and the
+          conifold have no surface point to blow up.
         </div>
       </div>
       <div class="card">
@@ -321,11 +370,13 @@
             <div class="kv"><span class="k">boundary B / interior I pts</span><span class="v" id="t-BI"></span></div>
           </div>
           <div>
-            <div class="kv"><span class="k">triangles in resolution</span><span class="v" id="t-tris"></span></div>
+            <div class="kv"><span class="k">cells in resolution</span><span class="v" id="t-tris"></span></div>
             <div class="kv"><span class="k">flippable edges</span><span class="v" id="t-flip"></span></div>
             <div class="kv"><span class="k">external (p,q) legs</span><span class="v" id="t-nlegs"></span></div>
           </div>
         </div>
+        <div class="kv" style="margin-top:8px"><span class="k">resolution state</span>
+          <span class="v" id="t-resid"></span></div>
         <div style="margin-top:8px" id="t-legtags"></div>
         <div class="note hide" id="t-note"></div>
       </div>
@@ -367,16 +418,25 @@
     <div id="t-invcard" class="card hide" style="margin-top:18px">
       <h2>Reconstructed quiver &mdash; inverse algorithm &nbsp;<span id="iv-badge" class="badge"></span></h2>
       <div class="sub" style="margin:0 0 10px">
-        Gulotta brane-tiling inverse: the toric diagram alone &rarr; a consistent dimer
+        Brane-tiling inverse: the toric diagram alone &rarr; a consistent dimer
         &rarr; gauge nodes (tiling faces), bifundamentals (edges), and a toric superpotential
-        (white/black vertices). Works for any polygon, no library entry needed.
+        (white/black vertices).  Triangles (abelian orbifolds C&sup3;/&Gamma;) are built
+        exactly as quotient honeycombs; other polygons via Gulotta's algorithm.
       </div>
       <div id="iv-phase-nav" class="hide" style="display:flex;align-items:center;gap:10px;margin:0 0 12px;flex-wrap:wrap">
         <span class="k" style="margin:0">toric (Seiberg-dual) phase</span>
         <span class="badge geom" id="iv-phase-label"></span>
         <button id="iv-phase-cycle" type="button">next phase &#9654;</button>
-        <span class="help" style="margin:0">Seiberg duality on a square gauge node (dimer "urban renewal"):
-          same toric diagram (same Kasteleyn Newton polygon), a different quiver frame.</span>
+        <span class="help" style="margin:0">all inequivalent phases, enumerated by exhaustive urban renewal.</span>
+      </div>
+      <div id="iv-dualize" class="hide" style="display:flex;align-items:center;gap:8px;margin:0 0 12px;flex-wrap:wrap">
+        <span class="k" style="margin:0">Seiberg duality</span>
+        <span class="badge vector hide" id="iv-dual-path"></span>
+        <button id="iv-dual-reset" type="button" class="hide">reset</button>
+        <span class="help" style="margin:0">click any quiver node to dualize it.
+          <span style="color:var(--warn)">glowing</span> nodes (N<sub>f</sub> = 2N<sub>c</sub>)
+          stay toric (dimer urban renewal); other nodes give N<sub>c</sub> &rarr;
+          N<sub>f</sub>&minus;N<sub>c</sub> &mdash; a non-toric phase with no dimer.</span>
       </div>
       <div class="grid" style="grid-template-columns:1fr 1fr">
         <div>
@@ -399,8 +459,8 @@
           <svg id="iv-tiling" class="grid" viewBox="0 0 420 360"></svg>
         </div>
       </div>
-      <div style="margin-top:10px">
-        <div class="help" style="margin:0 0 4px">toric superpotential (each field appears once with + and once with &minus;)</div>
+      <div style="margin-top:10px" id="iv-superpot-wrap">
+        <div class="help" style="margin:0 0 4px" id="iv-superpot-cap">toric superpotential (each field appears once with + and once with &minus;)</div>
         <div id="iv-superpot" style="font:12.5px/1.7 ui-monospace,Consolas,monospace;color:var(--ink)"></div>
       </div>
       <div class="note hide" id="iv-note"></div>
@@ -455,7 +515,11 @@ function drawQuiver(adj, dims, svgId){
   const pos = [];
   for(let i=0;i<n;i++){ const t=-Math.PI/2 + 2*Math.PI*i/n; pos.push([cx+R*Math.cos(t), cy+R*Math.sin(t)]); }
   const lbl = [];   // {x,y,m} multi-edge count labels, drawn last
-  let s = `<defs><marker id="ah" markerWidth="11" markerHeight="11" refX="8.4" refY="3.6"
+  // marker id must be UNIQUE PER SVG: url(#...) resolves document-wide, and a
+  // marker defined inside a hidden svg (the other tab) renders as nothing --
+  // which made every quiver look unoriented.
+  const AH = "ah-" + svgId;
+  let s = `<defs><marker id="${AH}" markerWidth="11" markerHeight="11" refX="8.4" refY="3.6"
             orient="auto"><path d="M0,0 L8.5,3.6 L0,7.2 Z" fill="#9fb2e0"/></marker></defs>`;
 
   for(let i=0;i<n;i++) for(let j=0;j<n;j++){
@@ -470,7 +534,7 @@ function drawQuiver(adj, dims, svgId){
       const D=r+30;
       const c1x=x+ox*D-tx*20, c1y=y+oy*D-ty*20;
       const c2x=x+ox*D+tx*20, c2y=y+oy*D+ty*20;
-      s+=`<path class="edge" marker-end="url(#ah)" d="M${sx.toFixed(1)} ${sy.toFixed(1)} C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${ex.toFixed(1)} ${ey.toFixed(1)}"/>`;
+      s+=`<path class="edge" marker-end="url(#${AH})" d="M${sx.toFixed(1)} ${sy.toFixed(1)} C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${ex.toFixed(1)} ${ey.toFixed(1)}"/>`;
       if(m>1) lbl.push({x:x+ox*(D+8), y:y+oy*(D+8), m});
       continue;
     }
@@ -481,14 +545,25 @@ function drawQuiver(adj, dims, svgId){
     const mx=(x1+x2)/2 - bow*uy, my=(y1+y2)/2 + bow*ux;
     const sx=x1+ux*r, sy=y1+uy*r;
     const ex=x2-ux*(r+5), ey=y2-uy*(r+5);
-    s+=`<path class="edge" marker-end="url(#ah)" d="M${sx.toFixed(1)} ${sy.toFixed(1)} Q ${mx.toFixed(1)} ${my.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}"/>`;
+    s+=`<path class="edge" marker-end="url(#${AH})" d="M${sx.toFixed(1)} ${sy.toFixed(1)} Q ${mx.toFixed(1)} ${my.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}"/>`;
     if(m>1) lbl.push({x:mx - uy*4, y:my + ux*4, m});
   }
 
+  // opts (4th arg): {clickable:true, toric:[node ids with a dimer UR move],
+  //                   ranks:[r per node, units of N]}
+  const opts = arguments[3] || {};
+  const toricSet = new Set(opts.toric || []);
+  const ranks = opts.ranks || null;
   for(let i=0;i<n;i++){
     const [x,y]=pos[i], big = dims[i]>1;
-    s+=`<g class="node ${big?'big':''}"><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}"/>
-        <text x="${x.toFixed(1)}" y="${y.toFixed(1)}">${i}</text></g>`;
+    const cls = "node" + (big?" big":"") + (toricSet.has(i)?" sq":"")
+              + (opts.clickable?" clk":"");
+    const dat = opts.clickable ? ` data-qnode="${i}"` : "";
+    s+=`<g class="${cls}"><circle${dat} cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}"/>
+        <text${dat} x="${x.toFixed(1)}" y="${y.toFixed(1)}">${i}</text></g>`;
+    if(ranks && ranks[i] !== 1)
+      s+=`<text x="${x.toFixed(1)}" y="${(y+r+11).toFixed(1)}" fill="var(--warn)" font-size="10.5"
+           font-weight="700" text-anchor="middle" dominant-baseline="central">${ranks[i]}N</text>`;
   }
   for(const t of lbl)
     s+=`<text x="${t.x.toFixed(1)}" y="${t.y.toFixed(1)}" fill="#9fb2e0" font-size="10.5"
@@ -599,13 +674,26 @@ loadGroups().then(compute);
 /* ===================== Toric (p,q)-web builder ===================== */
 const toricPts = new Set(["0,0","1,0","1,1","0,1"]);   // default: conifold
 let currentTri = null;             // current triangulation (index-triples)
-let blowMode = false;              // blow-up mode: click a corner to chamfer it
+let blowMode = "";                 // "", "up" (click an exceptional point) or "down" (click a smooth corner)
+let blowCands = [];                // base-surface blow-up sites: [{edge,apex,new_point}]
+let blowDownCands = [];            // base-surface -1-curve sites: [{corner,neighbors}]
+// partial resolution of the singular cone: which exceptional divisors (lattice
+// points) are blown up.  null = all = fully resolved (the default phase).
+let activePts = null;              // Set of "x,y" keys, or null
+let lastRes = null;                // last resolution payload (for handles/labels)
+// interactive Seiberg duality: the sequence of square gauge faces dualized so
+// far (urban-renewal path), applied from toric phase _dualStartPhase.
+let _dualPath = [];
+let _dualStartPhase = 0;
 
 // the lattice window auto-fits the current diagram (+ a clickable margin) so the
 // diagram fills the panel instead of floating in a fixed grid.
 let tView = {lo:[-3,-3], hi:[3,3]}, TM = {sc:1, ox:0, oy:0};
 function syncView(){
   const ps=[...toricPts].map(s=>s.split(",").map(Number));
+  // in blow-up mode also frame the exceptional points (they sit just outside the
+  // diagram) so their handles are fully visible.
+  if(blowMode === "up") for(const c of blowCands) ps.push(c.new_point);
   if(ps.length){
     const M=1;                     // clickable lattice margin around the diagram
     let mnx=Math.min(...ps.map(p=>p[0])), mxx=Math.max(...ps.map(p=>p[0]));
@@ -622,21 +710,9 @@ const sy = gy => 420 - (TM.oy + (gy-tView.lo[1])*TM.sc);
 const gKey = (x,y) => `${x},${y}`;
 const eKey = (a,b) => a<b ? `${a}_${b}` : `${b}_${a}`;
 
-// greatest common divisor (for primitive-edge / lattice-length tests)
-function jsGcd(a,b){ a=Math.abs(a); b=Math.abs(b); while(b){ [a,b]=[b,a%b]; } return a||1; }
-
-// which hull corners can be blown up: a corner is "smooth" (nothing to resolve)
-// only when BOTH adjacent edges have lattice length 1, so we exclude those.
-function blowableCorners(hull){
-  const n=hull.length, out=[];
-  if(n<3) return out;
-  for(let i=0;i<n;i++){
-    const V=hull[i], P=hull[(i-1+n)%n], Nx=hull[(i+1)%n];
-    const gP=jsGcd(V[0]-P[0], V[1]-P[1]), gN=jsGcd(Nx[0]-V[0], Nx[1]-V[1]);
-    if(gP>1 || gN>1) out.push(V);
-  }
-  return out;
-}
+// Base-surface blow-up sites come from the backend
+// (diagram.surface_blowup_candidates): each adds a NEW exceptional P^1 at
+// new_point = A+B-O.  Distinct from resolving the singularity (activePts).
 
 function jsHull(points){           // monotone chain -> CCW, no collinear
   const pts = points.map(s=>s.split(",").map(Number)).sort((p,q)=>p[0]-q[0]||p[1]-q[1]);
@@ -674,8 +750,20 @@ function emptyGrid(){
   return s;
 }
 
-// fetch the toric data. opts.flop=[i,j] sends the current triangulation + flop;
-// opts.blowup=[x,y] chamfers that corner (rewriting the diagram → resync points).
+// Fetch the toric data in TWO stages so the diagram + blow-up/down are instant:
+//   1. a FAST request (&inverse=0) returns only the cheap geometry (diagram,
+//      triangulation, (p,q) web, dimension, gauge count, blow-up/down sites) —
+//      rendered immediately;
+//   2. a SEPARATE request runs the expensive brane-tiling reconstruction and
+//      fills in the reconstructed-quiver / phases panels when it returns.
+// opts.flop=[i,j] sends the current triangulation + flop; opts.blowup=[x,y] /
+// opts.blowdown=[x,y] grow / shrink the diagram (then resync the point set).
+// Each call supersedes the previous: in-flight requests are aborted and a
+// sequence guard drops stale responses, so the LATEST click always wins.
+let _toricSeq = 0;
+let _toricAbort = null;
+let _invAbort = null;
+function setBusy(on){ const b=$("t-busy"); if(b) b.classList.toggle("hide", !on); }
 async function buildToric(opts){
   opts = opts || {};
   const pts = [...toricPts];
@@ -685,21 +773,71 @@ async function buildToric(opts){
     url += "&tri="+currentTri.map(t=>t.join("-")).join(".");
     url += "&flop="+opts.flop.join(",");
   }
-  if(opts.blowup){ url += "&blowup="+opts.blowup.join(","); }
+  if(opts.blowup || opts.blowdown){                // polygon changes: the
+    _dualPath = []; _dualStartPhase = 0;           // duality path is stale
+    syncDualHash();
+  }
+  if(opts.blowup){ url += "&surface_blowup="+opts.blowup.join(","); activePts = null; }
+  if(opts.blowdown){ url += "&surface_blowdown="+opts.blowdown.join(","); activePts = null; }
+  else if(activePts){ url += "&active="+encodeURIComponent([...activePts].join(";")); }
+  const seq = ++_toricSeq;
+  if(_toricAbort) _toricAbort.abort();        // cancel the previous geometry call
+  if(_invAbort) _invAbort.abort();            // and any pending inverse call
+  _toricAbort = new AbortController();
+  setBusy(true);
   try{
-    const d = await (await fetch(url)).json();
+    // stage 1: fast geometry only
+    const d = await (await fetch(url+"&inverse=0", {signal:_toricAbort.signal})).json();
+    if(seq !== _toricSeq) return;             // a newer click superseded this one
+    setBusy(false);
     if(d.error){
-      // a blow-up of a non-singular corner is rejected: keep the diagram, just warn.
-      if(opts.blowup){ flashBlowHint(d.error); return; }
+      // an illegal blow-up / blow-down site is rejected: keep the diagram, warn.
+      if(opts.blowup || opts.blowdown){ flashBlowHint(d.error); return; }
       tEmpty(d.error); return;
     }
-    if(opts.blowup){                 // the diagram changed → resync the point set
+    if(opts.blowup || opts.blowdown){   // the diagram changed → resync the point set
       toricPts.clear();
       for(const p of d.diagram.input_points) toricPts.add(gKey(p[0],p[1]));
     }
+    blowCands = (d.diagram && d.diagram.surface_blowup_candidates) || [];
+    blowDownCands = (d.diagram && d.diagram.surface_blowdown_candidates) || [];
     currentTri = d.resolution.triangulation;
-    renderGrid(d); renderWeb(d); renderResult(d);
-  }catch(e){ tEmpty(String(e)); }
+    lastRes = d.resolution;
+    // canonicalize the partial-resolution state from the backend (corners are
+    // forced active there; the full set collapses back to null)
+    activePts = d.resolution.fully_resolved ? null
+      : new Set(d.resolution.lattice_points
+          .filter((p,i)=>d.resolution.active_flags[i]).map(p=>gKey(p[0],p[1])));
+    // reflect it in the hash for deep-linking (like &phase=)
+    const toks = location.hash.replace(/^#/,"").split("&")
+      .filter(t => t && !t.startsWith("active="));
+    if(activePts) toks.push("active=" + [...activePts].join(";"));
+    history.replaceState(null, "", "#" + toks.join("&"));
+    renderGrid(d); renderWeb(d); renderResultGeometry(d);
+    // stage 2: the expensive inverse reconstruction, async (never blocks above)
+    fetchInverse(url, seq);
+  }catch(e){
+    if(e.name === "AbortError") return;       // superseded by a newer click; ignore
+    if(seq === _toricSeq){ setBusy(false); tEmpty(String(e)); }
+  }
+}
+
+async function fetchInverse(url, seq){
+  invReconstructing();                        // placeholder on the quiver/phases card
+  if(_dualPath.length){                       // interactive urban-renewal path
+    url += "&dualize=" + _dualPath.join(".");
+    if(_dualStartPhase) url += "&dualize_phase=" + _dualStartPhase;
+  }
+  _invAbort = new AbortController();
+  try{
+    const d = await (await fetch(url, {signal:_invAbort.signal})).json();  // full (inverse=1)
+    if(seq !== _toricSeq) return;             // a newer diagram superseded this
+    if(d.error){ renderInverse({available:false, error:d.error}); return; }
+    renderResultInverse(d);
+  }catch(e){
+    if(e.name === "AbortError") return;
+    if(seq === _toricSeq) renderInverse({available:false, error:String(e)});
+  }
 }
 
 function renderGrid(d){
@@ -708,6 +846,10 @@ function renderGrid(d){
   let s = baseGrid();
   // toric diagram (filled hull)
   s+=`<polygon class="toricfill" points="${hull.map(p=>`${sx(p[0])},${sy(p[1])}`).join(" ")}"/>`;
+  // residual orbifold singularities (non-unimodular cells) tinted
+  for(const cell of (res.residual_singularities||[])){
+    s+=`<polygon class="singcell" points="${cell.vertices.map(p=>`${sx(p[0])},${sy(p[1])}`).join(" ")}"/>`;
+  }
   // draw EVERY triangulation edge: boundary edges + internal edges (flippable
   // internal ones highlighted + clickable). Counting owners tells them apart.
   const ecount={};
@@ -726,9 +868,13 @@ function renderGrid(d){
       s+=`<line class="triedge" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
     }
   }
-  // lattice points: resolution points (boundary/interior) prominent, others faint
+  // lattice points: active resolution points prominent, unresolved (blown-down)
+  // divisors dimmed, everything else faint.
   const resCls={};
-  lat.forEach((p,i)=>{ resCls[gKey(p[0],p[1])] = res.boundary_flags[i] ? "bpt" : "ipt"; });
+  lat.forEach((p,i)=>{
+    const cls = res.boundary_flags[i] ? "bpt" : "ipt";
+    resCls[gKey(p[0],p[1])] = res.active_flags[i] ? cls : cls+" unres";
+  });
   for(let gx=tView.lo[0]; gx<=tView.hi[0]; gx++) for(let gy=tView.lo[1]; gy<=tView.hi[1]; gy++){
     const key=gKey(gx,gy);
     if(resCls[key])
@@ -736,12 +882,43 @@ function renderGrid(d){
     else
       s+=`<circle class="gridpt" data-gx="${gx}" data-gy="${gy}" cx="${sx(gx)}" cy="${sy(gy)}" r="3.6"/>`;
   }
-  // blow-up handles: a glowing ⊕ over each singular (blow-up-able) hull corner
-  if(blowMode){
-    for(const V of blowableCorners(hull)){
-      const x=sx(V[0]), y=sy(V[1]);
-      s+=`<circle class="blowhandle" data-blowup="${V[0]},${V[1]}" cx="${x}" cy="${y}" r="12"/>`;
+  const cornerSet = new Set(hull.map(p=>gKey(p[0],p[1])));
+  // FOUR distinct modes -- the two BLOW-UP notions are kept apart:
+  //  resup   : ⊕ on an UNRESOLVED lattice point -- blow up that exceptional
+  //            divisor of the singular cone (resolution; diagram fixed);
+  //  resdown : ⊖ on an ACTIVE non-corner point -- blow it back down;
+  //  up      : ⊕ outside the diagram -- blow up a point of the BASE SURFACE
+  //            (a NEW exceptional P^1, W = A+B-O; the diagram grows);
+  //  down    : ⊖ on a -1-curve corner -- contract that surface curve.
+  if(blowMode === "resup"){
+    lat.forEach((p,i)=>{
+      if(res.active_flags[i]) return;
+      const x=sx(p[0]), y=sy(p[1]);
+      s+=`<circle class="blowhandle" data-resolve="${p[0]},${p[1]}" cx="${x}" cy="${y}" r="12"/>`;
       s+=`<text class="blowplus" x="${x}" y="${y}">+</text>`;
+    });
+  }
+  if(blowMode === "resdown"){
+    lat.forEach((p,i)=>{
+      const key=gKey(p[0],p[1]);
+      if(!res.active_flags[i] || cornerSet.has(key)) return;
+      const x=sx(p[0]), y=sy(p[1]);
+      s+=`<circle class="blowhandle down" data-unresolve="${p[0]},${p[1]}" cx="${x}" cy="${y}" r="12"/>`;
+      s+=`<text class="blowplus" x="${x}" y="${y}">&minus;</text>`;
+    });
+  }
+  if(blowMode === "up"){
+    for(const c of blowCands){
+      const W=c.new_point, x=sx(W[0]), y=sy(W[1]);
+      s+=`<circle class="blowhandle" data-blowup="${W[0]},${W[1]}" cx="${x}" cy="${y}" r="12"/>`;
+      s+=`<text class="blowplus" x="${x}" y="${y}">+</text>`;
+    }
+  }
+  if(blowMode === "down"){
+    for(const c of blowDownCands){
+      const W=c.corner, x=sx(W[0]), y=sy(W[1]);
+      s+=`<circle class="blowhandle down" data-blowdown="${W[0]},${W[1]}" cx="${x}" cy="${y}" r="12"/>`;
+      s+=`<text class="blowplus" x="${x}" y="${y}">&minus;</text>`;
     }
   }
   $("grid").innerHTML = s;
@@ -767,7 +944,8 @@ function renderWeb(d){
     s+=`<line class="wedge" x1="${X(J[a][0])}" y1="${Y(J[a][1])}" x2="${X(J[b][0])}" y2="${Y(J[b][1])}"/>`;
     if(e.pq){                                   // (p,q) charge along this finite leg
       const mx=(J[a][0]+J[b][0])/2, my=(J[a][1]+J[b][1])/2;
-      s+=`<text class="wedgelabel" x="${X(mx)}" y="${Y(my)}" text-anchor="middle" dominant-baseline="central">(${e.pq[0]},${e.pq[1]})</text>`;
+      const m=(e.mult||1)>1?`×${e.mult}`:"";
+      s+=`<text class="wedgelabel" x="${X(mx)}" y="${Y(my)}" text-anchor="middle" dominant-baseline="central">(${e.pq[0]},${e.pq[1]})${m}</text>`;
     }
   }
   for(const leg of web.external_legs){
@@ -776,13 +954,16 @@ function renderWeb(d){
     s+=`<line class="wleg" x1="${X(j[0])}" y1="${Y(j[1])}" x2="${X(ex)}" y2="${Y(ey)}"/>`;
     s+=`<circle class="wlegdot" cx="${X(ex)}" cy="${Y(ey)}" r="2.6"/>`;
     const lx=j[0]+p/L*(legLen+0.45), ly=j[1]+q/L*(legLen+0.45);
-    s+=`<text class="wleglabel" x="${X(lx)}" y="${Y(ly)}" text-anchor="middle" dominant-baseline="central">(${p},${q})</text>`;
+    const m=(leg.mult||1)>1?`×${leg.mult}`:"";
+    s+=`<text class="wleglabel" x="${X(lx)}" y="${Y(ly)}" text-anchor="middle" dominant-baseline="central">(${p},${q})${m}</text>`;
   }
   for(const j of J) s+=`<circle class="wjunc" cx="${X(j[0])}" cy="${Y(j[1])}" r="4.2"/>`;
   $("t-web").innerHTML = s;
 }
 
-function renderResult(d){
+// The CHEAP geometry result -- rendered immediately from the fast (&inverse=0)
+// response so the diagram and blow-up/down never wait on the brane-tiling solve.
+function renderResultGeometry(d){
   $("t-empty").classList.add("hide"); $("t-body").classList.remove("hide");
   const c=d.conformal, g=d.diagram, w=d.web, id=d.identified, res=d.resolution;
   $("t-dim").textContent = c.dim_conf;
@@ -794,23 +975,20 @@ function renderResult(d){
   $("t-flip").textContent = res.flippable_edges.length;
   const cs = w.charge_sum;
   $("t-nlegs").textContent = `${w.num_external_legs}  (Σ charge = (${cs[0]},${cs[1]}))`;
+  const sing = res.residual_singularities || [];
+  $("t-resid").innerHTML = res.fully_resolved
+    ? "fully resolved (every exceptional divisor blown up)"
+    : `partially resolved — ${res.num_active}/${res.lattice_points.length} divisors blown up; ` +
+      `residual singularities: ` +
+      sing.map(c=>`<span class="legtag" style="border-color:rgba(255,107,107,.55)">${c.label}</span>`).join(" ");
   $("t-legtags").innerHTML = w.legs.map(l=>`<span class="legtag">(${l.pq[0]},${l.pq[1]})</span>`).join("");
   const note = id.note || "";
   if(note){ $("t-note").textContent=note; $("t-note").classList.remove("hide"); }
   else $("t-note").classList.add("hide");
 
-  renderToricScft(d.scft);
-  // toric (Seiberg-dual) phases: cycle them if the backend enumerated >1, else
-  // fall back to the single seed quiver.
-  const ph = d.inverse_phases;
-  _ivPhases = (ph && ph.available && ph.phases && ph.phases.length)
-    ? ph.phases : [d.inverse_quiver];
-  let start = 0;
-  const m = (location.hash.match(/(?:^|[#&])phase=(\d+)/));
-  if(m){ start = Math.min(parseInt(m[1],10)||0, _ivPhases.length-1); }
-  showPhase(start);
+  renderToricScft(d.scft);            // central charges + corner R (field_R fills in later)
 
-  if(d.quiver){
+  if(d.quiver){                       // named-library quiver (cheap, in the fast response)
     const q=d.quiver;
     $("t-quivercard").classList.remove("hide");
     const badge=$("t-qbadge"); badge.className="badge geom"; badge.textContent=id.label;
@@ -823,6 +1001,98 @@ function renderResult(d){
   } else {
     $("t-quivercard").classList.add("hide");
   }
+}
+
+// The EXPENSIVE reconstructed quiver + brane tiling + Seiberg phases -- rendered
+// from the full response when the async inverse fetch returns.
+function renderResultInverse(d){
+  renderToricScft(d.scft);            // re-render to add per-field R-charges
+  const iv = d.inverse_quiver;
+  if(_dualPath.length){
+    // an interactive urban-renewal path is active: display ITS tiling (the
+    // response's inverse_quiver); if a move failed, show the error + reset.
+    if(!iv || !iv.available){
+      _dualPath.pop();                // drop the failing move, keep the rest
+      renderInverse(iv);
+      syncDualHash();
+      return;
+    }
+    _ivPhases = [iv];
+    showPhase(0);
+    return;
+  }
+  const ph = d.inverse_phases;
+  _ivPhases = (ph && ph.available && ph.phases && ph.phases.length)
+    ? ph.phases : [d.inverse_quiver];
+  let start = 0;
+  const m = (location.hash.match(/(?:^|[#&])phase=(\d+)/));
+  if(m){ start = Math.min(parseInt(m[1],10)||0, _ivPhases.length-1); }
+  showPhase(start);
+}
+
+// hash bookkeeping for the urban-renewal path (like &phase= / &active=)
+function syncDualHash(){
+  const toks = location.hash.replace(/^#/,"").split("&")
+    .filter(t => t && !t.startsWith("dualize=") && !t.startsWith("dualize_phase="));
+  if(_dualPath.length){
+    toks.push("dualize=" + _dualPath.join("."));
+    if(_dualStartPhase) toks.push("dualize_phase=" + _dualStartPhase);
+  }
+  history.replaceState(null, "", "#" + toks.join("&"));
+}
+
+// the Seiberg-dualize row: the current path + reset.  The MOVES are made by
+// clicking the quiver nodes themselves (any node -- glowing = a dimer
+// urban-renewal move; others are genuine Seiberg dualities that leave the
+// toric/dimer regime).
+function renderDualize(iv){
+  const row=$("iv-dualize");
+  if(!iv || !iv.available){
+    row.classList.toggle("hide", !_dualPath.length);
+  } else {
+    row.classList.remove("hide");
+  }
+  const pb=$("iv-dual-path");
+  if(_dualPath.length){
+    pb.textContent = (_dualStartPhase?`phase ${_dualStartPhase+1}`:"seed")
+      + " → " + _dualPath.map(f=>`n${f}`).join(" → ");
+    pb.classList.remove("hide");
+    $("iv-dual-reset").classList.remove("hide");
+  } else {
+    pb.classList.add("hide");
+    $("iv-dual-reset").classList.add("hide");
+  }
+}
+function _quiverNodeClick(e){
+  const t=e.target;
+  if(t.dataset && t.dataset.qnode!==undefined){     // Seiberg-dualize this node
+    if(!_dualPath.length) _dualStartPhase = _ivPhaseIdx;   // dualize from here
+    _dualPath.push(parseInt(t.dataset.qnode,10));
+    syncDualHash();
+    buildToric();
+  }
+}
+// both quiver displays are live: the named-library card on top (synced to the
+// duality state once the reconstruction arrives) and the inverse card below.
+$("iv-quiver").addEventListener("click", _quiverNodeClick);
+$("t-quiver").addEventListener("click", _quiverNodeClick);
+$("iv-dual-reset").addEventListener("click", ()=>{
+  _dualPath = []; _dualStartPhase = 0;
+  syncDualHash();
+  buildToric();
+});
+
+// Placeholder shown on the reconstructed-quiver card while its async fetch runs.
+function invReconstructing(){
+  const card=$("t-invcard"); card.classList.remove("hide");
+  $("iv-phase-nav").classList.add("hide");
+  $("iv-badge").className="badge vector"; $("iv-badge").textContent="reconstructing…";
+  $("iv-gauge").textContent=$("iv-fields").textContent=$("iv-w").textContent="…";
+  $("iv-checks").innerHTML="";
+  $("iv-quiver").innerHTML=""; $("iv-adjwrap").innerHTML=""; $("iv-tiling").innerHTML="";
+  $("iv-superpot").textContent="";
+  $("iv-note").textContent="reconstructing the brane tiling / quiver from the diagram…";
+  $("iv-note").classList.remove("hide");
 }
 
 function drawTiling(t, svgId){
@@ -884,8 +1154,26 @@ function showPhase(idx){
   renderInverse(_ivPhases[_ivPhaseIdx]);
 }
 
+// keep the TOP "Quiver gauge theory" card in sync with the interactive
+// duality state: same drawing (same node numbering, clickable, glowing
+// N_f = 2N_c nodes, rank labels), same adjacency and counts.  Its geometry
+// badge and the Leigh-Strassler dimension stay -- both duality-invariant.
+function syncTopQuiver(iv, dims, qopts){
+  const card=$("t-quivercard");
+  if(card.classList.contains("hide")) return;      // no named-library quiver
+  drawQuiver(iv.adjacency, dims, "t-quiver", qopts);
+  drawAdj(iv.adjacency, "t-adjwrap");
+  $("t-qnodes").textContent = (iv.ranks && iv.ranks.some(r=>r!==1))
+    ? iv.num_gauge + "  (ranks " + iv.ranks.map(r=>r+"N").join(", ") + ")"
+    : iv.num_gauge;
+  $("t-qarrows").textContent = iv.num_fields;
+  $("t-qW").textContent = iv.superpotential ? iv.superpotential.length
+    : (iv.superpotential_w ? iv.superpotential_w.length : "—");
+}
+
 function renderInverse(iv){
   const card=$("t-invcard");
+  renderDualize(iv);
   if(!iv || !iv.available){
     card.classList.remove("hide");
     $("iv-phase-nav").classList.add("hide");
@@ -899,7 +1187,47 @@ function renderInverse(iv){
     return;
   }
   card.classList.remove("hide");
-  const allok = Object.values(iv.checks).every(v => v===true || v===0);
+  const dims = new Array(iv.num_gauge).fill(1);
+  const qopts = {clickable: true, toric: iv.square_faces || [],
+                 ranks: iv.ranks || null};
+
+  if(iv.dimer_available === false){          // genuine Seiberg dual: quiver only
+    $("iv-badge").className="badge vector";
+    $("iv-badge").textContent = "non-toric phase";
+    $("iv-gauge").textContent = iv.num_gauge
+      + "  (ranks " + (iv.ranks||[]).map(r=>r+"N").join(", ") + ")";
+    $("iv-fields").textContent = iv.num_fields;
+    $("iv-w").textContent = "—";
+    $("iv-checks").innerHTML =
+      `<div class="kv"><span class="k">anomaly-free (rank-weighted)</span>` +
+      `<span class="v">${iv.checks.anomaly_free ? "✓" : "✗"}</span></div>`;
+    drawQuiver(iv.adjacency, dims, "iv-quiver", qopts);
+    drawAdj(iv.adjacency, "iv-adjwrap");
+    $("iv-tiling").innerHTML =
+      `<text x="210" y="170" text-anchor="middle" fill="var(--warn)" font-size="15" font-weight="600">Dimer unavailable — non-toric phase</text>` +
+      `<text x="210" y="196" text-anchor="middle" fill="#8b96a8" font-size="12">unequal gauge ranks: no brane-tiling description</text>`;
+    if(iv.superpotential_w){                 // W tracked by DWZ mutation
+      $("iv-superpot-wrap").classList.remove("hide");
+      $("iv-superpot-cap").textContent =
+        "superpotential (tracked through the Seiberg dualities; mesons M[ab], dual quarks a*)";
+      $("iv-superpot").innerHTML = "W = " + iv.superpotential_w.map(t => {
+        const c = t.coeff;
+        const pre = c === "1" ? "+ " : (c === "-1" ? "− " : (c.startsWith("-") ? "− "+c.slice(1)+"·" : "+ "+c+"·"));
+        return pre + t.fields.join("·");
+      }).join("  ");
+    } else {
+      $("iv-superpot").textContent = "";
+      $("iv-superpot-wrap").classList.add("hide");
+    }
+    $("iv-note").textContent = iv.reason || "";
+    $("iv-note").classList.toggle("hide", !iv.reason);
+    syncTopQuiver(iv, dims, qopts);
+    return;
+  }
+
+  // null = a check that was skipped (e.g. the O(n!) Kasteleyn Newton certificate
+  // on a large diagram) -- not a failure.
+  const allok = Object.values(iv.checks).every(v => v===true || v===0 || v===null);
   $("iv-badge").className="badge "+(allok?"chiral":"vector");
   $("iv-badge").textContent = allok ? "consistent dimer ✓" : "check failed";
   $("iv-gauge").textContent = iv.num_gauge;
@@ -912,13 +1240,16 @@ function renderInverse(iv){
     const v=iv.checks[k]; const ok=(v===true||v===0);
     return `<div class="kv"><span class="k">${labels[k]}</span><span class="v">${ok?"✓":"✗ ("+v+")"}</span></div>`;
   }).join("");
-  const dims = new Array(iv.num_gauge).fill(1);
-  drawQuiver(iv.adjacency, dims, "iv-quiver");
+  drawQuiver(iv.adjacency, dims, "iv-quiver", qopts);
   drawAdj(iv.adjacency, "iv-adjwrap");
   drawTiling(iv.tiling, "iv-tiling");
+  $("iv-superpot-wrap").classList.remove("hide");
+  $("iv-superpot-cap").textContent =
+    "toric superpotential (each field appears once with + and once with −)";
   $("iv-superpot").innerHTML = "W = " + iv.superpotential.map(term =>
     (term.sign>0?"+":"−") + " " + term.fields.join("·")).join("  ");
   $("iv-note").textContent = iv.note || ""; $("iv-note").classList.toggle("hide", !iv.note);
+  syncTopQuiver(iv, dims, qopts);
 }
 
 function renderToricScft(s){
@@ -954,8 +1285,24 @@ function renderToricScft(s){
 
 $("grid").addEventListener("click", e=>{
   const t=e.target;
-  if(t.dataset && t.dataset.blowup!==undefined){          // blow up (chamfer) a corner
+  if(t.dataset && t.dataset.resolve!==undefined){         // blow up a divisor of the cone
+    if(activePts) activePts.add(t.dataset.resolve);       // (null can't occur: no
+    buildToric();                                         //  inactive points then)
+    return;
+  }
+  if(t.dataset && t.dataset.unresolve!==undefined){       // blow down a divisor
+    if(!activePts && lastRes)                             // fully resolved -> start
+      activePts = new Set(lastRes.lattice_points.map(p=>gKey(p[0],p[1])));
+    if(activePts) activePts.delete(t.dataset.unresolve);
+    buildToric();
+    return;
+  }
+  if(t.dataset && t.dataset.blowup!==undefined){          // blow up the base surface
     buildToric({blowup: t.dataset.blowup.split(",").map(Number)});
+    return;
+  }
+  if(t.dataset && t.dataset.blowdown!==undefined){        // blow down a -1-curve
+    buildToric({blowdown: t.dataset.blowdown.split(",").map(Number)});
     return;
   }
   if(t.dataset && t.dataset.edge!==undefined){            // flop a flippable edge
@@ -965,11 +1312,13 @@ $("grid").addEventListener("click", e=>{
   if(t.dataset && t.dataset.gx!==undefined){              // add/remove a diagram point
     const k=gKey(t.dataset.gx, t.dataset.gy);
     if(toricPts.has(k)) toricPts.delete(k); else toricPts.add(k);
+    activePts = null;                                     // new polygon: fully resolved
+    _dualPath = []; _dualStartPhase = 0; syncDualHash();  // duality path is stale
     buildToric();                                         // polygon changed -> default phase
   }
 });
 
-// blow-up mode toggle + a transient hint when a corner can't be blown up
+// blow-up / blow-down mode toggles + a transient hint when a site is rejected
 let _blowHintTimer = null;
 function flashBlowHint(msg){
   const h=$("blowhint");
@@ -981,21 +1330,32 @@ function flashBlowHint(msg){
 function syncBlowHint(){
   const h=$("blowhint");
   h.style.color = "";
-  h.textContent = blowMode
-    ? "ON — click a glowing ⊕ corner handle to blow it up (chamfer → resolve it); everything recomputes."
-    : "off — toggle on, then click a glowing ⊕ corner handle to blow it up (chamfer → resolve that corner).";
+  h.textContent =
+    blowMode === "resup"   ? "RESOLVE — click ⊕ on a dimmed lattice point to blow up that exceptional divisor of the singular cone (diagram fixed; red cells = residual orbifold singularities shrink away)."
+  : blowMode === "resdown" ? "UN-RESOLVE — click ⊖ on a lattice point to blow that exceptional divisor back down (toward the singular cone; cells merge and tint red)."
+  : blowMode === "up"      ? "NEW P¹ — click ⊕ outside the diagram to blow up a point of the BASE SURFACE (adds a new exceptional P¹ / external leg; dP0→dP1; needs a cone over a surface = exactly one interior lattice point)."
+  : blowMode === "down"    ? "CONTRACT P¹ — click ⊖ on a corner to blow down a −1-curve of the base surface (dP1→dP0; minimal surfaces like P², P¹×P¹ have none)."
+  : "off — pick one of the four modes above, then click a glowing handle.  The two rows are DIFFERENT blow-ups: resolving the singular cone vs adding a new P¹ to the base surface.";
 }
-$("blowmode").addEventListener("click", ()=>{
-  blowMode = !blowMode;
-  $("blowmode").classList.toggle("on", blowMode);
+function setBlowMode(m){              // mutually-exclusive toggle of the 4 modes
+  blowMode = (blowMode === m) ? "" : m;
+  $("resupmode").classList.toggle("on", blowMode === "resup");
+  $("resdownmode").classList.toggle("on", blowMode === "resdown");
+  $("blowmode").classList.toggle("on", blowMode === "up");
+  $("blowdownmode").classList.toggle("on", blowMode === "down");
   syncBlowHint();
-  buildToric();                       // re-render to show/hide the corner handles
-});
+  buildToric();                       // re-render to show/hide the handles
+}
+$("resupmode").addEventListener("click", ()=> setBlowMode("resup"));
+$("resdownmode").addEventListener("click", ()=> setBlowMode("resdown"));
+$("blowmode").addEventListener("click", ()=> setBlowMode("up"));
+$("blowdownmode").addEventListener("click", ()=> setBlowMode("down"));
 // only the diagram presets carry data-pts; the blow-up toggle shares .preset
 // styling but must NOT clear the diagram, so scope the handler by [data-pts].
 document.querySelectorAll("button.preset[data-pts]").forEach(b=>{
   b.addEventListener("click", ()=>{
-    toricPts.clear(); currentTri=null;
+    toricPts.clear(); currentTri=null; activePts=null;
+    _dualPath = []; _dualStartPhase = 0; syncDualHash();
     for(const p of (b.dataset.pts||"").split(";")) if(p) toricPts.add(p.trim());
     buildToric();
   });
@@ -1013,8 +1373,40 @@ function showTab(which){
 }
 $("tab-orb").addEventListener("click", ()=>showTab("orb"));
 $("tab-tor").addEventListener("click", ()=>showTab("tor"));
-// deep-links may carry a trailing &phase=k (added when cycling phases); strip it
-const _hashNoPhase = location.hash.replace(/&phase=\d+/,"");
+// deep-links may carry a trailing &phase=k (added when cycling phases); strip it.
+// A trailing &blow / &blowdown pre-enables blow-up / blow-down mode (for sharing).
+// &active=x,y;x,y restores a partial resolution (which divisors are blown up).
+let _hashNoPhase = location.hash.replace(/&phase=\d+/,"");
+const _mAct = _hashNoPhase.match(/&active=([^&]*)/);
+if(_mAct){
+  _hashNoPhase = _hashNoPhase.replace(/&active=[^&]*/,"");
+  activePts = new Set(decodeURIComponent(_mAct[1]).split(";").filter(Boolean)
+                      .map(s=>s.trim()));
+  if(!activePts.size) activePts = null;
+}
+const _mDual = _hashNoPhase.match(/&dualize=([\d.]+)/);   // urban-renewal path
+if(_mDual){
+  _hashNoPhase = _hashNoPhase.replace(/&dualize=[\d.]+/,"");
+  _dualPath = _mDual[1].split(".").filter(Boolean).map(Number);
+}
+const _mDph = _hashNoPhase.match(/&dualize_phase=(\d+)/);
+if(_mDph){
+  _hashNoPhase = _hashNoPhase.replace(/&dualize_phase=\d+/,"");
+  _dualStartPhase = parseInt(_mDph[1],10)||0;
+}
+if(/&resdown\b/.test(_hashNoPhase)){
+  _hashNoPhase = _hashNoPhase.replace(/&resdown\b/,"");
+  blowMode = "resdown"; $("resdownmode").classList.add("on"); syncBlowHint();
+} else if(/&resup\b/.test(_hashNoPhase)){
+  _hashNoPhase = _hashNoPhase.replace(/&resup\b/,"");
+  blowMode = "resup"; $("resupmode").classList.add("on"); syncBlowHint();
+} else if(/&blowdown\b/.test(_hashNoPhase)){
+  _hashNoPhase = _hashNoPhase.replace(/&blowdown\b/,"");
+  blowMode = "down"; $("blowdownmode").classList.add("on"); syncBlowHint();
+} else if(/&blow\b/.test(_hashNoPhase)){
+  _hashNoPhase = _hashNoPhase.replace(/&blow\b/,"");
+  blowMode = "up"; $("blowmode").classList.add("on"); syncBlowHint();
+}
 if(_hashNoPhase === "#toric") showTab("tor");    // deep-link to the builder
 if(_hashNoPhase.startsWith("#pts=")){            // deep-link to a specific diagram
   toricPts.clear(); currentTri=null;

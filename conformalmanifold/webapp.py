@@ -11,7 +11,18 @@ Endpoints
     GET /api/toric_web?pts=x0,y0;x1,y1;...   toric diagram -> (p,q) web + quiver
         optional &tri=a-b-c.d-e-f...  (current triangulation, index-triples)
         optional &flop=i,j            (flop this internal edge before rendering)
-        optional &blowup=x,y          (blow up / chamfer this corner first)
+        optional &surface_blowup=x,y   (blow up a point of the BASE SURFACE first:
+                                        adds a NEW exceptional P^1, polygon grows;
+                                        &blowup= accepted as a legacy alias)
+        optional &surface_blowdown=x,y (contract a -1-curve of the base surface;
+                                        &blowdown= accepted as a legacy alias)
+        optional &active=x,y;x,y;...   (RESOLUTION OF THE SINGULARITY at fixed
+                                        polygon: the blown-up exceptional divisors;
+                                        corners always active; omit = fully resolved)
+        optional &dualize=f1.f2...     (interactive Seiberg duality: apply urban
+                                        renewal on these square gauge faces in order)
+        optional &dualize_phase=k      (start the dualize path from toric phase k)
+        optional &inverse=0           (skip the brane-tiling reconstruction; geometry only)
 """
 
 from __future__ import annotations
@@ -142,8 +153,22 @@ class Handler(BaseHTTPRequestHandler):
                 pts = _parse_points(q.get("pts", [""])[0])
                 tri = _parse_triangulation(q.get("tri", [""])[0])
                 flop = _parse_edge(q.get("flop", [""])[0])
-                blowup = _parse_point(q.get("blowup", [""])[0])
-                self._json(api.summarize_toric_web(pts, tri, flop, blowup))
+                blowup = _parse_point(q.get("surface_blowup",
+                                            q.get("blowup", [""]))[0])
+                blowdown = _parse_point(q.get("surface_blowdown",
+                                              q.get("blowdown", [""]))[0])
+                active_s = q.get("active", [""])[0].strip()
+                active = _parse_points(active_s) if active_s else None
+                dual_s = q.get("dualize", [""])[0].strip()
+                dualize = [int(v) for v in dual_s.split(".") if v] if dual_s \
+                    else None
+                dualize_phase = int(q.get("dualize_phase", ["0"])[0] or 0)
+                # &inverse=0 -> skip the expensive brane-tiling reconstruction
+                # (the UI fetches it separately so the geometry stays instant)
+                inc_inv = q.get("inverse", ["1"])[0] != "0"
+                self._json(api.summarize_toric_web(
+                    pts, tri, flop, blowup, blowdown, active,
+                    dualize, dualize_phase, include_inverse=inc_inv))
             except (ValueError, KeyError) as exc:
                 self._json({"error": str(exc)}, code=400)
             except Exception as exc:  # noqa: BLE001

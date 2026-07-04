@@ -9,7 +9,8 @@ from .conformal import conformal_manifold_dim
 from .groups import MatrixGroup, cyclic, make_group
 from .quiver import build_quiver
 from .scft import orbifold_scft_json, toric_field_R_charges, toric_scft_json
-from .inverse import inverse_quiver_json, inverse_phases_json
+from .inverse import (inverse_quiver_json, inverse_phases_json,
+                      dualize_path_json)
 
 
 def _c(z) -> dict:
@@ -17,6 +18,32 @@ def _c(z) -> dict:
     re = 0.0 if abs(z.real) < 1e-4 else round(z.real, 4)
     im = 0.0 if abs(z.imag) < 1e-4 else round(z.imag, 4)
     return {"re": re, "im": im}
+
+
+# ---------------------------------------------------------------------------
+# Cache for the expensive hull-only toric computations (the inverse brane-tiling
+# reconstruction in particular can take many seconds, and it depends ONLY on the
+# polygon -- NOT on the triangulation/flop/blow-up the user is interacting with).
+# So flopping an edge, toggling blow-up mode, or re-selecting the same diagram
+# reuses these instead of recomputing them every click.
+# ---------------------------------------------------------------------------
+_HULL_CACHE: dict = {}
+_HULL_CACHE_MAX = 128
+
+# Largest diagram (2*area = gauge-group count) for which the toric tab runs the
+# inverse brane-tiling reconstruction inline.  Above this the geometry still
+# renders instantly; only the (expensive) reconstructed-quiver panel is skipped.
+INVERSE_MAX_AREA2 = 16
+
+
+def _hull_cached(hull, tag, fn):
+    """Memoise `fn()` keyed by (hull, tag); `fn` must depend only on the hull."""
+    key = (tuple(map(tuple, hull)), tag)
+    if key not in _HULL_CACHE:
+        if len(_HULL_CACHE) >= _HULL_CACHE_MAX:
+            _HULL_CACHE.clear()               # crude but bounded; dev tool
+        _HULL_CACHE[key] = fn()
+    return _HULL_CACHE[key]
 
 
 def summarize(group: MatrixGroup) -> dict:
@@ -79,7 +106,9 @@ def summarize_freeform(expr: str) -> dict:
 # Toric "web builder": a user-drawn toric diagram -> dual (p,q) web + quiver
 # ===========================================================================
 def summarize_toric_web(points, triangulation=None, flop_edge=None,
-                        blowup=None) -> dict:
+                        surface_blowup=None, surface_blowdown=None, active=None,
+                        dualize=None, dualize_phase=0,
+                        include_inverse=True) -> dict:
     """Given the lattice points of a toric diagram (the dot/grid diagram a
     physicist draws), return its convex-hull toric diagram, a triangulation
     (resolution / toric phase) of it, the dual (p,q) 5-brane web for that
@@ -92,18 +121,47 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None,
                       triangulation is computed if omitted or inconsistent.
     `flop_edge`     : optional [i, j] internal edge to flop in `triangulation`
                       before rendering.
-    `blowup`        : optional [x, y] corner to blow up (chamfer) BEFORE doing
-                      anything else; it rewrites the diagram (the returned
-                      `diagram.input_points` is the new point set) and the
-                      triangulation/flop are recomputed from scratch for it."""
+    Blow-ups come in TWO distinct kinds, kept separate throughout:
+
+    `surface_blowup`  : optional [x, y] -- blow up a POINT OF THE BASE SURFACE,
+                      adding a NEW exceptional P^1 (the polygon GROWS; the
+                      returned `diagram.input_points` is the new point set and
+                      the triangulation/flop are recomputed from scratch).
+                      dP0 -> dP1 -> dP2 -> dP3.
+    `surface_blowdown`: optional [x, y] -- contract a -1-curve of the base
+                      surface, the inverse of `surface_blowup`.
+    `active`        : RESOLUTION OF THE SINGULARITY (fixed polygon): the list of
+                      [x, y] lattice points = exceptional divisors currently
+                      blown up in the crepant resolution of the singular cone
+                      (hull corners are always active).  None = all lattice
+                      points = fully resolved (the default phase).  Cells of
+                      2*area > 1 in the resulting subdivision are reported as
+                      `residual_singularities`.
+    `dualize`       : optional list of gauge-face indices -- an INTERACTIVE
+                      Seiberg-duality (urban renewal) path.  Every square face
+                      (N_f = 2N_c node) of the displayed tiling is a legal
+                      move; the moves are applied in order starting from the
+                      seed (or from toric phase `dualize_phase`), and the
+                      returned `inverse_quiver` is the dualized tiling (with
+                      `dual_path` echoed and fresh `square_faces`).
+    `include_inverse`: when False, skip the expensive brane-tiling reconstruction
+                      (inverse quiver + Seiberg phases + per-field R-charges) so
+                      the geometry returns instantly; the UI fetches those
+                      separately.  Everything else is always computed."""
     from . import toric as T
     from . import resolution as Rz
 
     pts = [(int(round(x)), int(round(y))) for (x, y) in points]
-    if blowup is not None:
-        pts = Rz.blowup_corner(pts, blowup)   # raises ValueError on a bad corner
+    if surface_blowup is not None:
+        pts = Rz.surface_blowup(pts, surface_blowup)   # new P^1; ValueError if illegal
         triangulation = None                  # the diagram changed; start fresh
         flop_edge = None
+        active = None                         # new diagram starts fully resolved
+    elif surface_blowdown is not None:
+        pts = Rz.surface_blowdown(pts, surface_blowdown)  # contract a -1-curve
+        triangulation = None
+        flop_edge = None
+        active = None
     hull = T.convex_hull(pts)
     if len(hull) < 3:
         raise ValueError("need at least 3 non-collinear lattice points to span a "
@@ -116,15 +174,34 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None,
     lat = Rz.lattice_points(hull)             # canonical index order
     interior = set(Rz.interior_lattice_points(hull))
 
+    # partial resolution: which exceptional divisors are blown up.  Corners are
+    # forced; None (or the full set) = fully resolved.
+    if active is not None:
+        activeset = ({(int(round(x)), int(round(y))) for (x, y) in active}
+                     & set(lat)) | set(hull)
+        if activeset == set(lat):
+            active = None                     # everything on = fully resolved
+    if active is None:
+        activeset = set(lat)
+
     tri = [tuple(t) for t in triangulation] if triangulation else None
-    if not (tri and Rz.is_valid_triangulation(lat, tri, hull)):
-        _, tri = Rz.triangulate(hull)         # (re)compute the default phase
+    if not (tri and Rz.is_valid_subdivision(lat, tri, hull, activeset)):
+        _, tri = Rz.triangulate(hull, activeset)   # (re)compute the default phase
         flop_edge = None                      # a stale flop no longer applies
     if flop_edge is not None:
         tri = Rz.flop(lat, tri, flop_edge)    # raises ValueError if not flippable
 
     web = Rz.dual_web(lat, tri, hull)
     flippable = Rz.flippable_edges(lat, tri)
+
+    # residual orbifold singularities of the partial resolution (cells of
+    # 2*area > 1), each identified against the named-geometry library.
+    residual = Rz.residual_cells(lat, tri)
+    for cell in residual:
+        geom = T.identify_toric([tuple(v) for v in cell["vertices"]])
+        # every simplicial cell is an abelian orbifold C^3/Gamma, |Gamma|=2*area
+        cell["label"] = (geom.label if geom is not None
+                         else f"C³/Γ orbifold, |Γ| = {cell['area2']}")
 
     out = {
         "diagram": {
@@ -135,10 +212,21 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None,
             "interior_points": I,
             "norm_area2": area2,
             "edge_lengths": list(edges),
+            # BASE-SURFACE sites (polygon changes): blow up a point of the
+            # surface = add a NEW exceptional P^1 (W = A+B-O; dP0 -> dP1), or
+            # blow down a -1-curve.  Distinct from resolving the singularity
+            # (the `active` divisor set at fixed polygon, under "resolution").
+            "surface_blowup_candidates": Rz.surface_blowup_candidates(pts),
+            "surface_blowdown_candidates": Rz.surface_blowdown_candidates(pts),
         },
         "resolution": {
             "lattice_points": [list(p) for p in lat],
             "boundary_flags": [p not in interior for p in lat],   # True = boundary
+            # partial resolution state: which exceptional divisors are blown up
+            "active_flags": [p in activeset for p in lat],
+            "fully_resolved": len(activeset) == len(lat),
+            "num_active": len(activeset),
+            "residual_singularities": residual,   # non-unimodular cells + labels
             "triangulation": [list(t) for t in tri],              # index-triples
             "num_triangles": len(tri),
             "web": web,                       # junctions / internal_edges / external_legs
@@ -156,17 +244,46 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None,
                        "= # external (p,q) legs)",
             "num_gauge_groups": area2,         # = 2 * area of the toric diagram
         },
-        "scft": toric_scft_json(hull),         # central charges + R-charges
-        # inverse algorithm: reconstruct a quiver + brane tiling from the diagram
-        # alone (works for ANY polygon, independent of the named library below).
-        "inverse_quiver": inverse_quiver_json(hull, max_gauge=40),
+        "scft": _hull_cached(hull, "scft", lambda: toric_scft_json(hull)),
     }
+
+    # Inverse algorithm: reconstruct a quiver + brane tiling from the diagram
+    # alone.  This is the ONLY expensive part of the toric tab -- the diagram,
+    # triangulation, (p,q) web, gauge-group count, dimension and blow-up/down
+    # candidates above are all cheap and always computed.  The reconstruction
+    # (Gulotta dimer + Kasteleyn certificate) grows fast with the area, and on
+    # some diagrams the dimer search even fails *slowly*, so the UI fetches it in
+    # a SEPARATE request (include_inverse=False) -- the geometry renders instantly
+    # and blow-up/down never wait on it.  Also size-gated + cached by hull.
+    if not include_inverse:
+        out["inverse_quiver"] = {"available": False, "deferred": True,
+                                 "reason": "fetched separately"}
+        out["inverse_phases"] = {"available": False, "deferred": True}
+        return _finish_identify(out, hull, T)
+
+    if dualize:
+        # interactive Seiberg-duality path: not cached (path-dependent), but a
+        # single urban-renewal move is fast.
+        out["inverse_quiver"] = dualize_path_json(hull, list(dualize),
+                                                  start_phase=dualize_phase)
+    elif area2 <= INVERSE_MAX_AREA2:
+        out["inverse_quiver"] = _hull_cached(
+            hull, "inv", lambda: inverse_quiver_json(hull, max_gauge=INVERSE_MAX_AREA2))
+    else:
+        out["inverse_quiver"] = {
+            "available": False,
+            "reason": f"quiver reconstruction skipped for 2*area = {area2} "
+                      f"(> {INVERSE_MAX_AREA2}) to keep the builder responsive; "
+                      "the diagram, (p,q) web, gauge-group count and dimension "
+                      "are still exact.",
+        }
 
     # Seiberg-dual *toric phases* (cycle them in the UI).  The phase search is
     # combinatorial in the face degrees, so only run it for small diagrams; for
     # larger ones the single seed phase above stands.
     if area2 <= 6:
-        out["inverse_phases"] = inverse_phases_json(hull)
+        out["inverse_phases"] = _hull_cached(
+            hull, "phases", lambda: inverse_phases_json(hull))
     else:
         out["inverse_phases"] = {
             "available": False,
@@ -177,10 +294,20 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None,
     # per-field superconformal R-charges: needs both the corner R-charges (scft)
     # and the reconstructed dimer (zig-zag legs + superpotential).
     inv = out["inverse_quiver"]
-    if inv.get("available") and out["scft"].get("corner_R"):
+    if inv.get("available") and out["scft"].get("corner_R") and \
+            inv.get("fields") and all("zigzag" in f for f in inv["fields"]):
+        # needs the seed's zig-zag annotations; a dualized (urban-renewal)
+        # tiling has new fields with no zig-zag data, and a NON-TORIC Seiberg
+        # dual has no dimer fields at all -- skip in both cases.
         out["scft"]["field_R"] = toric_field_R_charges(
             hull, inv["fields"], inv["superpotential"], out["scft"]["corner_R"])
 
+    return _finish_identify(out, hull, T)
+
+
+def _finish_identify(out, hull, T):
+    """Attach the named-library identification (+ its quiver, if any) to `out`.
+    Cheap (a lookup), so it runs on both the fast and full toric responses."""
     geom = T.identify_toric(hull)
     if geom is None:
         out["identified"] = {
