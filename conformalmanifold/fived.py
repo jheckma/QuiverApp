@@ -28,13 +28,41 @@ So far:
   dP0 = local P^2 (the E_0 SCFT) -> Z_3; C^3/(Z_n x Z_m) -> Z_n x Z_m;
   C^2/Z_n x C -> Z_n; F0 = local P^1 x P^1 -> Z_2; dP1, dP3 -> trivial.
 
-Scope: this is the (electric) **1-form** symmetry.  The full defect group also
-carries a magnetic part and a linking pairing -- the actual seed of the SymTFT
-action -- which is the natural next addition on top of this.
+* **defect group + pairing + global forms** (`defect_group`).  Lines (M2 on
+  non-compact 2-cycles mod screening) and surface defects (M5 on non-compact
+  4-cycles mod screening) organise into  D = Gamma_e (+) Gamma_m  with
+  Gamma_m ~= Gamma_e = Gamma  by the perfectness of the torsion linking form on
+  the link.  Following Albertini-Del Zotto-Garcia Etxebarria-Hosseini
+  (arXiv:2005.12831): Gamma = Tor coker(Q2), with Q2 the intersection matrix of
+  curve classes x compact divisors of a crepant resolution (their eq. 3.9c),
+  and the linking pairing = "inverse of Q2 mod 1" on torsion generators (their
+  eqs. 3.15-3.17).  Both are computed here WITHOUT choosing a triangulation:
+  curve classes = integer relations among the rays (v_i, 1) over the lattice
+  points (GLSM charges), so flop-invariance is manifest.  On canonically paired
+  (Smith-normal-form) generators the pairing collapses to the hyperbolic form
+  l = 1/d per factor; published generator conventions differ by a unit/sign
+  (ADEH quote -1/3 for dP0, -1/gcd(p,q) for Y^{p,q}), which does not affect
+  the global-form (polarization) enumeration.  Absolute 5d theories correspond
+  to maximal isotropic ("Lagrangian") subgroups of D; for isolated toric
+  singularities Gamma is always cyclic (ADEH eq. 3.24-3.25) and the number of
+  global forms is sigma(d) = sum of divisors of d (dP0: 4, F0/SU(2)_0: 3).
+
+  Validated against: dP0 = E0 (D = Z3 (+) Z3, ADEH eq. 6.10), Y^{p,q}
+  (Gamma = Z_gcd(p,q), ADEH eq. 4.4), the corner-triangle gcd shortcut (their
+  eqs. 3.24-3.25), and agreement with the boundary formula `one_form_symmetry`
+  on all isolated cases (named + randomized sweeps).
+
+Scope: for NON-isolated singularities the field-theory defect group can be
+*smaller* than the link reading (screening by the 7d flavor sector on the
+singular line); ADEH's modified prescription (their sec. 5.2) is conjectural,
+so here we keep reporting the link group with a note and defer the screened
+group.  The cubic (anomaly) SymTFT term (Apruzzi et al, arXiv:2112.02092,
+eq. 5.24) is extracted but not yet implemented.
 """
 
 from __future__ import annotations
 
+from fractions import Fraction
 from functools import reduce
 from math import gcd
 
@@ -109,3 +137,181 @@ def abelian_label(factors: list[int]) -> str:
     if not factors:
         return "trivial"
     return " x ".join(f"Z_{d}" for d in factors)
+
+
+# ----------------------------------------------------------------------------
+# integer linear algebra (pure stdlib): Smith normal form with transforms
+# ----------------------------------------------------------------------------
+def smith_normal_form(Ain):
+    """Smith normal form over Z with transforms: returns (P, D, Q) with
+    P @ A @ Q = D, P and Q unimodular, D diagonal with d1 | d2 | ...  Small
+    dense matrices only (polygon-sized)."""
+    A = [list(map(int, row)) for row in Ain]
+    m, n = len(A), (len(A[0]) if A else 0)
+    P = [[int(i == j) for j in range(m)] for i in range(m)]
+    Q = [[int(i == j) for j in range(n)] for i in range(n)]
+
+    def swap_rows(i, j):
+        A[i], A[j] = A[j], A[i]
+        P[i], P[j] = P[j], P[i]
+
+    def swap_cols(i, j):
+        for r in A: r[i], r[j] = r[j], r[i]
+        for r in Q: r[i], r[j] = r[j], r[i]
+
+    def add_row(src, dst, c):          # row_dst += c * row_src
+        A[dst] = [a + c * b for a, b in zip(A[dst], A[src])]
+        P[dst] = [a + c * b for a, b in zip(P[dst], P[src])]
+
+    def add_col(src, dst, c):
+        for r in A: r[dst] += c * r[src]
+        for r in Q: r[dst] += c * r[src]
+
+    t = 0
+    while t < min(m, n):
+        piv = None
+        for i in range(t, m):
+            for j in range(t, n):
+                if A[i][j] and (piv is None or abs(A[i][j]) < abs(A[piv[0]][piv[1]])):
+                    piv = (i, j)
+        if piv is None:
+            break
+        swap_rows(t, piv[0]); swap_cols(t, piv[1])
+        again = True
+        while again:
+            again = False
+            for i in range(t + 1, m):
+                if A[i][t]:
+                    q = A[i][t] // A[t][t]
+                    add_row(t, i, -q)
+                    if A[i][t]:
+                        swap_rows(t, i); again = True
+            for j in range(t + 1, n):
+                if A[t][j]:
+                    q = A[t][j] // A[t][t]
+                    add_col(t, j, -q)
+                    if A[t][j]:
+                        swap_cols(t, j); again = True
+        ok = False
+        while not ok:                   # enforce d_t | (everything below-right)
+            ok = True
+            for i in range(t + 1, m):
+                bad = next((j for j in range(t + 1, n) if A[i][j] % A[t][t]), None)
+                if bad is not None:
+                    add_row(i, t, 1)
+                    for jj in range(t + 1, n):
+                        if A[t][jj]:
+                            q = A[t][jj] // A[t][t]
+                            add_col(t, jj, -q)
+                            if A[t][jj]:
+                                swap_cols(t, jj)
+                    ok = False
+                    break
+        if A[t][t] < 0:
+            A[t] = [-x for x in A[t]]
+            P[t] = [-x for x in P[t]]
+        t += 1
+    return P, A, Q
+
+
+def _integer_kernel(U):
+    """Z-basis (as rows) of the saturated lattice {x in Z^n : U x = 0}."""
+    P, D, Q = smith_normal_form(U)
+    m, n = len(U), len(U[0])
+    r = sum(1 for k in range(min(m, n)) if D[k][k])
+    cols = list(zip(*Q))
+    return [list(cols[j]) for j in range(r, n)]
+
+
+def sigma_divisors(d: int) -> int:
+    """sigma(d) = sum of divisors of d = # of maximal isotropic (Lagrangian)
+    subgroups of Z_d (+) Z_d with the standard symplectic pairing = # of
+    global forms of a 5d theory with cyclic defect-group factor Z_d."""
+    return sum(k for k in range(1, d + 1) if d % k == 0)
+
+
+# ----------------------------------------------------------------------------
+# the full defect group (ADEH, arXiv:2005.12831 secs. 3.2-3.3)
+# ----------------------------------------------------------------------------
+def defect_group(hull) -> dict:
+    """Full defect group D = Gamma_e (+) Gamma_m of the 5d theory, with the
+    canonical Dirac/linking pairing and the global-form count.
+
+    Returns a dict:
+      isolated         bool -- polygon edges all primitive?
+      factors          invariant factors of Gamma (electric = magnetic half)
+      label            e.g. 'Z_3 (+) Z_3' for D, or 'trivial'
+      pairing          ['1/3', ...] canonical hyperbolic coefficients (isolated
+                       only; generator-convention note in the module docstring)
+      num_global_forms sigma(d) for isolated (cyclic) Gamma; None otherwise
+      note             '' or the honest-scope caveat
+    """
+    from .resolution import lattice_points, interior_lattice_points
+    from .toric import convex_hull, polygon_signature
+
+    hull = convex_hull([(int(x), int(y)) for (x, y) in hull])
+    _, _, _, edges = polygon_signature(hull)
+    isolated = all(int(e) == 1 for e in edges)
+    link_factors = one_form_symmetry(hull)
+
+    if not isolated:
+        return {
+            "isolated": False,
+            "factors": link_factors,
+            "label": _defect_label(link_factors),
+            "pairing": None,
+            "num_global_forms": None,
+            "note": ("link reading only: for a non-isolated singularity the "
+                     "field-theory defect group can be smaller (screening by "
+                     "the 7d flavor sector on the singular line; ADEH sec. 5.2 "
+                     "prescription not yet implemented)"),
+        }
+
+    # Route A (ADEH eq. 3.9c), triangulation-free:
+    #   rays u_i = (v_i, 1) over ALL lattice points; curve classes = integer
+    #   relations among the rays; Q2 = relations restricted to interior columns.
+    lat = lattice_points(hull)
+    interior = set(interior_lattice_points(hull))
+    int_idx = [i for i, p in enumerate(lat) if p in interior]
+    if int_idx:
+        rays = [[p[0] for p in lat], [p[1] for p in lat], [1] * len(lat)]
+        K = _integer_kernel(rays)                     # rows = curve classes
+        A = [[row[i] for row in K] for i in int_idx]  # I x (n-3) map matrix
+        _, D, _ = smith_normal_form(A)
+        ds = [D[k][k] for k in range(min(len(A), len(A[0])))]
+        factors = [d for d in ds if d > 1]
+    else:
+        factors = []                                  # I = 0 (isolated): trivial
+
+    note = ""
+    if sorted(factors) != sorted(link_factors):       # defensive; never seen
+        note = (f"intersection-matrix group {abelian_label(factors)} disagrees "
+                f"with the boundary reading {abelian_label(link_factors)} -- "
+                "please report this diagram")
+
+    return {
+        "isolated": True,
+        "factors": factors,
+        "label": _defect_label(factors),
+        "pairing": [str(Fraction(1, d)) for d in factors],
+        "num_global_forms": _num_global_forms(factors),
+        "note": note,
+    }
+
+
+def _defect_label(factors: list[int]) -> str:
+    """Label for D = Gamma (+) Gamma, e.g. 'Z_3 (+) Z_3'."""
+    if not factors:
+        return "trivial"
+    g = abelian_label(factors)
+    return f"{g} (+) {g}"
+
+
+def _num_global_forms(factors: list[int]) -> int:
+    """Number of polarizations of D = Gamma (+) Gamma.  Isolated toric Gamma is
+    cyclic (single invariant factor), where the count is sigma(d)."""
+    if not factors:
+        return 1
+    if len(factors) == 1:
+        return sigma_divisors(factors[0])
+    return None  # non-cyclic Gamma cannot arise for isolated toric; be honest

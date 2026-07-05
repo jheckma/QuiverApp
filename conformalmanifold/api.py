@@ -258,6 +258,8 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None,
         "one_form_factors": factors,        # invariant factors, e.g. [] / [3] / [2,2]
         "one_form_label": F.abelian_label(factors),
         "note": F.non_isolated_note(edges), # '' unless the singularity is non-isolated
+        # full defect group D = Gamma_e (+) Gamma_m, canonical pairing, # global forms
+        "defect_group": F.defect_group(hull),
     }
 
     # Inverse algorithm: reconstruct a quiver + brane tiling from the diagram

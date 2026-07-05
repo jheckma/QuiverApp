@@ -146,7 +146,10 @@ CREATE TABLE IF NOT EXISTS toric_quivers (
     superpotential  TEXT,      -- JSON: [[sign, [field,...]], ...]
     rank_5d         INTEGER,   -- 5d SCFT rank (Coulomb-branch dim) = I
     flavor_rank_5d  INTEGER,   -- 5d flavor-symmetry rank = B - 3
-    one_form_5d     TEXT       -- 5d 1-form symmetry, e.g. 'Z_3' / 'trivial'
+    one_form_5d     TEXT,      -- 5d 1-form symmetry, e.g. 'Z_3' / 'trivial'
+    defect_group_5d TEXT,      -- D = Gamma (+) Gamma, e.g. 'Z_3 (+) Z_3'
+    pairing_5d      TEXT,      -- canonical Dirac pairing, e.g. '1/3' (isolated)
+    n_global_forms_5d INTEGER  -- # polarizations of D (isolated; else NULL)
 );
 """
 
@@ -154,11 +157,26 @@ _TORIC_COLS = ["label", "family", "description", "num_nodes", "num_fields",
                "num_w_terms", "dim_conf", "dim_conf_geom", "boundary_points",
                "interior_points", "norm_area2", "edge_lengths", "diagram",
                "arrows", "superpotential", "rank_5d", "flavor_rank_5d",
-               "one_form_5d"]
+               "one_form_5d", "defect_group_5d", "pairing_5d",
+               "n_global_forms_5d"]
 
 # columns added after the first release: ALTERed into pre-existing db files
 _TORIC_5D_COLS = {"rank_5d": "INTEGER", "flavor_rank_5d": "INTEGER",
-                  "one_form_5d": "TEXT"}
+                  "one_form_5d": "TEXT", "defect_group_5d": "TEXT",
+                  "pairing_5d": "TEXT", "n_global_forms_5d": "INTEGER"}
+
+
+def _fived_defect_cols(hull) -> dict:
+    """The defect-group columns shared by both toric tables."""
+    if not hull:
+        return {"defect_group_5d": None, "pairing_5d": None,
+                "n_global_forms_5d": None}
+    dg = fived.defect_group(hull)
+    return {
+        "defect_group_5d": dg["label"],
+        "pairing_5d": ", ".join(dg["pairing"]) if dg["pairing"] else None,
+        "n_global_forms_5d": dg["num_global_forms"],
+    }
 
 
 def _ensure_columns(conn, table: str, cols: dict):
@@ -181,6 +199,7 @@ def toric_record(q) -> dict:
         "flavor_rank_5d": fived.flavor_rank(B) if B is not None else None,
         "one_form_5d": (fived.abelian_label(fived.one_form_symmetry(hull))
                         if hull else None),
+        **_fived_defect_cols(hull),
         "label": q.label,
         "family": q.family,
         "description": q.description,
@@ -236,14 +255,18 @@ CREATE TABLE IF NOT EXISTS toric_diagrams (
     note            TEXT,
     rank_5d         INTEGER,   -- 5d SCFT rank (Coulomb-branch dim) = I
     flavor_rank_5d  INTEGER,   -- 5d flavor-symmetry rank = B - 3
-    one_form_5d     TEXT       -- 5d 1-form symmetry, e.g. 'Z_3' / 'trivial'
+    one_form_5d     TEXT,      -- 5d 1-form symmetry, e.g. 'Z_3' / 'trivial'
+    defect_group_5d TEXT,      -- D = Gamma (+) Gamma, e.g. 'Z_3 (+) Z_3'
+    pairing_5d      TEXT,      -- canonical Dirac pairing, e.g. '1/3' (isolated)
+    n_global_forms_5d INTEGER  -- # polarizations of D (isolated; else NULL)
 );
 """
 
 _TORIC_DIAGRAM_COLS = ["label", "family", "description", "num_gauge", "dim_conf",
                        "boundary_points", "interior_points", "norm_area2",
                        "edge_lengths", "diagram", "note", "rank_5d",
-                       "flavor_rank_5d", "one_form_5d"]
+                       "flavor_rank_5d", "one_form_5d", "defect_group_5d",
+                       "pairing_5d", "n_global_forms_5d"]
 
 
 def toric_diagram_record(d) -> dict:
@@ -254,6 +277,7 @@ def toric_diagram_record(d) -> dict:
         "rank_5d": I,
         "flavor_rank_5d": fived.flavor_rank(B),
         "one_form_5d": fived.abelian_label(fived.one_form_symmetry(hull)),
+        **_fived_defect_cols(hull),
         "label": d.label,
         "family": d.family,
         "description": d.description,

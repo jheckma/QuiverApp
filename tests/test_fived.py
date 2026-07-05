@@ -46,6 +46,107 @@ def test_abelian_label():
     assert F.abelian_label([2, 2]) == "Z_2 x Z_2"
 
 
+# ---------------------------------------------------------------------------
+# defect group D = Gamma (+) Gamma, pairing, global forms
+# ---------------------------------------------------------------------------
+def test_smith_normal_form_properties():
+    import random
+    rng = random.Random(3)
+    for _ in range(25):
+        m, n = rng.randint(1, 4), rng.randint(1, 4)
+        A = [[rng.randint(-6, 6) for _ in range(n)] for _ in range(m)]
+        P, D, Q = F.smith_normal_form(A)
+        # P @ A @ Q == D
+        PA = [[sum(P[i][k] * A[k][j] for k in range(m)) for j in range(n)]
+              for i in range(m)]
+        PAQ = [[sum(PA[i][k] * Q[k][j] for k in range(n)) for j in range(n)]
+               for i in range(m)]
+        assert PAQ == D
+        # diagonal, non-negative, divisibility chain
+        ds = []
+        for i in range(m):
+            for j in range(n):
+                if i != j:
+                    assert D[i][j] == 0
+                elif D[i][j]:
+                    ds.append(D[i][j])
+        assert all(d > 0 for d in ds)
+        assert all(ds[k + 1] % ds[k] == 0 for k in range(len(ds) - 1))
+
+
+def _lens_chain_gcd(hull):
+    """ADEH eqs. (3.24)-(3.25): third independent route (isolated only)."""
+    from math import gcd
+    from functools import reduce
+    v = len(hull)
+    ns = [abs((hull[i][0] - hull[i - 1][0]) * (hull[(i + 1) % v][1] - hull[i - 1][1])
+              - (hull[i][1] - hull[i - 1][1]) * (hull[(i + 1) % v][0] - hull[i - 1][0]))
+          for i in range(v)]
+    g = reduce(gcd, ns, 0)
+    return [] if g <= 1 else [g]
+
+
+def test_defect_group_anchors():
+    # (points, factors, pairing, #global forms) -- anchors from ADEH 2005.12831
+    cases = [
+        ([(0, 0), (1, 0), (0, 1)], [], [], 1),                     # C^3
+        ([(0, 0), (1, 0), (1, 1), (0, 1)], [], [], 1),             # conifold
+        ([(1, 0), (0, 1), (-1, -1)], [3], ["1/3"], 4),             # dP0 = E0 (eq 6.10)
+        ([(1, 0), (0, 1), (-1, -1), (0, -1)], [], [], 1),          # dP1
+        ([(-1, 0), (1, 0), (0, 1), (0, -1)], [2], ["1/2"], 3),     # F0 = SU(2)_0
+        ([(-1, 0), (0, 0), (1, 2), (0, 4)], [2], ["1/2"], 3),      # Y(4,2) (eq 4.4)
+        ([(-1, 0), (0, 0), (1, 3), (0, 6)], [3], ["1/3"], 4),      # Y(6,3)
+        ([(-1, 0), (0, 0), (1, 6), (0, 9)], [3], ["1/3"], 4),      # Y(9,3)
+        ([(-1, 0), (0, 0), (1, 4), (0, 4)], [4], ["1/4"], 7),      # Y(4,0)
+    ]
+    for pts, factors, pairing, nforms in cases:
+        hull = T.convex_hull(pts)
+        dg = F.defect_group(hull)
+        assert dg["isolated"] is True
+        assert dg["factors"] == factors
+        assert dg["pairing"] == pairing
+        assert dg["num_global_forms"] == nforms
+        assert dg["note"] == ""
+        # three independent routes agree
+        assert sorted(dg["factors"]) == sorted(F.one_form_symmetry(hull))
+        assert sorted(dg["factors"]) == sorted(_lens_chain_gcd(hull))
+
+
+def test_defect_group_random_isolated_matches_link():
+    import random
+    rng = random.Random(19)
+    tested = 0
+    while tested < 40:
+        pts = [(rng.randint(-4, 4), rng.randint(-4, 4))
+               for _ in range(rng.randint(3, 8))]
+        hull = T.convex_hull(pts)
+        if len(hull) < 3:
+            continue
+        _, _, _, edges = T.polygon_signature(hull)
+        if any(e != 1 for e in edges):
+            continue
+        tested += 1
+        dg = F.defect_group(hull)
+        assert sorted(dg["factors"]) == sorted(F.one_form_symmetry(hull))
+        assert sorted(dg["factors"]) == sorted(_lens_chain_gcd(hull))
+        assert dg["note"] == ""
+
+
+def test_defect_group_non_isolated_is_caveated():
+    for pts, link in [([(0, 0), (4, 0), (0, 1)], [4]),        # C^2/Z_4 x C
+                      ([(0, 0), (2, 0), (0, 2)], [2, 2])]:    # C^3/(Z_2 x Z_2)
+        dg = F.defect_group(T.convex_hull(pts))
+        assert dg["isolated"] is False
+        assert dg["factors"] == link                          # link reading kept
+        assert dg["pairing"] is None
+        assert dg["num_global_forms"] is None
+        assert "screening" in dg["note"]
+
+
+def test_sigma_divisors():
+    assert [F.sigma_divisors(d) for d in (1, 2, 3, 4, 6, 12)] == [1, 3, 4, 7, 12, 28]
+
+
 def test_api_exposes_fived_block():
     out = api.summarize_toric_web([(1, 0), (0, 1), (-1, -1)])           # dP0
     fived = out["fived"]
@@ -54,6 +155,10 @@ def test_api_exposes_fived_block():
     assert fived["one_form_factors"] == [3]
     assert fived["one_form_label"] == "Z_3"
     assert fived["note"] == ""                                          # dP0 is isolated
+    dg = fived["defect_group"]
+    assert dg["label"] == "Z_3 (+) Z_3"
+    assert dg["pairing"] == ["1/3"]
+    assert dg["num_global_forms"] == 4
 
 
 def test_non_isolated_note():
@@ -77,13 +182,19 @@ def test_database_carries_fived_columns(tmp_path):
     conn = sqlite3.connect(db)
     try:
         # explicit-quiver table: dP0 = local P^2 (E_0)
-        row = conn.execute("SELECT rank_5d, flavor_rank_5d, one_form_5d "
+        row = conn.execute("SELECT rank_5d, flavor_rank_5d, one_form_5d, "
+                           "defect_group_5d, pairing_5d, n_global_forms_5d "
                            "FROM toric_quivers WHERE label='dP0'").fetchone()
-        assert row == (1, 0, "Z_3")
+        assert row == (1, 0, "Z_3", "Z_3 (+) Z_3", "1/3", 4)
         # diagram-only table: dP3 (E_3)
-        row = conn.execute("SELECT rank_5d, flavor_rank_5d, one_form_5d "
+        row = conn.execute("SELECT rank_5d, flavor_rank_5d, one_form_5d, "
+                           "defect_group_5d, pairing_5d, n_global_forms_5d "
                            "FROM toric_diagrams WHERE label='dP3'").fetchone()
-        assert row == (1, 3, "trivial")
+        assert row == (1, 3, "trivial", "trivial", None, 1)
+        # non-isolated rows carry the link reading but no pairing/global forms
+        row = conn.execute("SELECT defect_group_5d, pairing_5d, n_global_forms_5d "
+                           "FROM toric_diagrams WHERE label='Z(2,2)'").fetchone()
+        assert row == ("Z_2 x Z_2 (+) Z_2 x Z_2", None, None)
         # the research query the columns exist for: rank-1, Z_3 1-form
         hits = conn.execute("SELECT label FROM toric_quivers WHERE rank_5d=1 "
                             "AND one_form_5d='Z_3'").fetchall()
