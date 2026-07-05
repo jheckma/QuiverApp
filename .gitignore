@@ -6,3 +6,6 @@ build/
 dist/
 *.egg-info/
 *.db
+
+# headless-QA scratch output
+_qa/
