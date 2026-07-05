@@ -20,6 +20,7 @@ import sys
 
 import numpy as np
 
+from . import fived
 from .groups import MatrixGroup, library
 from .pipeline import run as _run
 from .u2groups import u2_library
@@ -142,14 +143,31 @@ CREATE TABLE IF NOT EXISTS toric_quivers (
     edge_lengths    TEXT,      -- JSON: sorted primitive edge lengths
     diagram         TEXT,      -- JSON: CCW lattice-polygon vertices
     arrows          TEXT,      -- JSON: {field: [src, tgt]}
-    superpotential  TEXT       -- JSON: [[sign, [field,...]], ...]
+    superpotential  TEXT,      -- JSON: [[sign, [field,...]], ...]
+    rank_5d         INTEGER,   -- 5d SCFT rank (Coulomb-branch dim) = I
+    flavor_rank_5d  INTEGER,   -- 5d flavor-symmetry rank = B - 3
+    one_form_5d     TEXT       -- 5d 1-form symmetry, e.g. 'Z_3' / 'trivial'
 );
 """
 
 _TORIC_COLS = ["label", "family", "description", "num_nodes", "num_fields",
                "num_w_terms", "dim_conf", "dim_conf_geom", "boundary_points",
                "interior_points", "norm_area2", "edge_lengths", "diagram",
-               "arrows", "superpotential"]
+               "arrows", "superpotential", "rank_5d", "flavor_rank_5d",
+               "one_form_5d"]
+
+# columns added after the first release: ALTERed into pre-existing db files
+_TORIC_5D_COLS = {"rank_5d": "INTEGER", "flavor_rank_5d": "INTEGER",
+                  "one_form_5d": "TEXT"}
+
+
+def _ensure_columns(conn, table: str, cols: dict):
+    """ALTER TABLE ADD COLUMN for any of `cols` missing from an existing db
+    (CREATE TABLE IF NOT EXISTS does not touch already-created tables)."""
+    have = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+    for name, sqltype in cols.items():
+        if name not in have:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {sqltype}")
 
 
 def toric_record(q) -> dict:
@@ -157,7 +175,12 @@ def toric_record(q) -> dict:
     from .toric import convex_hull, polygon_signature
     sig = q.signature()
     area2, B, I, edges = sig if sig else (None, None, None, ())
+    hull = convex_hull(q.diagram) if q.diagram else None
     return {
+        "rank_5d": I,
+        "flavor_rank_5d": fived.flavor_rank(B) if B is not None else None,
+        "one_form_5d": (fived.abelian_label(fived.one_form_symmetry(hull))
+                        if hull else None),
         "label": q.label,
         "family": q.family,
         "description": q.description,
@@ -170,7 +193,7 @@ def toric_record(q) -> dict:
         "interior_points": I,
         "norm_area2": area2,
         "edge_lengths": json.dumps(list(edges)),
-        "diagram": json.dumps([list(v) for v in convex_hull(q.diagram)] if q.diagram else []),
+        "diagram": json.dumps([list(v) for v in hull] if hull else []),
         "arrows": json.dumps({str(k): list(v) for k, v in q.arrows.items()}),
         "superpotential": json.dumps([[s, list(c)] for s, c in q.W]),
     }
@@ -181,6 +204,7 @@ def build_toric_database(quivers, db_path: str):
     conn = sqlite3.connect(db_path)
     try:
         conn.execute(TORIC_SCHEMA)
+        _ensure_columns(conn, "toric_quivers", _TORIC_5D_COLS)
         placeholders = ",".join("?" for _ in _TORIC_COLS)
         updates = ",".join(f"{c}=excluded.{c}" for c in _TORIC_COLS if c != "label")
         sql = (f"INSERT INTO toric_quivers ({','.join(_TORIC_COLS)}) "
@@ -209,19 +233,27 @@ CREATE TABLE IF NOT EXISTS toric_diagrams (
     norm_area2      INTEGER,   -- 2 * area
     edge_lengths    TEXT,      -- JSON: sorted primitive edge lengths
     diagram         TEXT,      -- JSON: CCW lattice-polygon vertices
-    note            TEXT
+    note            TEXT,
+    rank_5d         INTEGER,   -- 5d SCFT rank (Coulomb-branch dim) = I
+    flavor_rank_5d  INTEGER,   -- 5d flavor-symmetry rank = B - 3
+    one_form_5d     TEXT       -- 5d 1-form symmetry, e.g. 'Z_3' / 'trivial'
 );
 """
 
 _TORIC_DIAGRAM_COLS = ["label", "family", "description", "num_gauge", "dim_conf",
                        "boundary_points", "interior_points", "norm_area2",
-                       "edge_lengths", "diagram", "note"]
+                       "edge_lengths", "diagram", "note", "rank_5d",
+                       "flavor_rank_5d", "one_form_5d"]
 
 
 def toric_diagram_record(d) -> dict:
     """Per-geometry record for a `toric.ToricDiagram`."""
     area2, B, I, edges = d.signature()
+    hull = d.hull()
     return {
+        "rank_5d": I,
+        "flavor_rank_5d": fived.flavor_rank(B),
+        "one_form_5d": fived.abelian_label(fived.one_form_symmetry(hull)),
         "label": d.label,
         "family": d.family,
         "description": d.description,
@@ -231,7 +263,7 @@ def toric_diagram_record(d) -> dict:
         "interior_points": I,
         "norm_area2": area2,
         "edge_lengths": json.dumps(list(edges)),
-        "diagram": json.dumps([list(v) for v in d.hull()]),
+        "diagram": json.dumps([list(v) for v in hull]),
         "note": d.note,
     }
 
@@ -241,6 +273,7 @@ def build_toric_diagram_database(diagrams, db_path: str):
     conn = sqlite3.connect(db_path)
     try:
         conn.execute(TORIC_DIAGRAM_SCHEMA)
+        _ensure_columns(conn, "toric_diagrams", _TORIC_5D_COLS)
         placeholders = ",".join("?" for _ in _TORIC_DIAGRAM_COLS)
         updates = ",".join(f"{c}=excluded.{c}" for c in _TORIC_DIAGRAM_COLS
                            if c != "label")

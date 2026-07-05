@@ -147,13 +147,14 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None) -> dict:
         },
     }
 
-    # 5d SCFT / AdS6 reading of the same diagram (kept separate from the 4d quiver).
+    # AdS6/CFT5 reading of the same diagram (kept separate from the 4d quiver).
     factors = F.one_form_symmetry(hull)
     out["fived"] = {
         "rank": I,                          # Coulomb-branch dim = # interior points
         "flavor_rank": F.flavor_rank(B),    # flavor-symmetry rank = # mass params = B - 3
         "one_form_factors": factors,        # invariant factors, e.g. [] / [3] / [2,2]
         "one_form_label": F.abelian_label(factors),
+        "note": F.non_isolated_note(edges), # '' unless the singularity is non-isolated
     }
 
     geom = T.identify_toric(hull)

@@ -71,6 +71,25 @@ def one_form_symmetry(hull) -> list[int]:
     return [d for d in (d1, d2) if d > 1]
 
 
+def non_isolated_note(edge_lengths) -> str:
+    """Caveat for NON-isolated toric singularities, '' when isolated.
+
+    A polygon edge of lattice length > 1 (extra lattice points on the edge)
+    means a line of A-type singularities running off to infinity, carrying a 7d
+    "flavor" gauge sector.  The quantities reported here are still the standard
+    link/toric computations, but the theory is then not an *isolated*
+    interacting 5d SCFT -- part of the data (e.g. some of the flavor rank, and
+    center charges under the 1-form symmetry) belongs to that non-compact
+    flavor sector.  Mirrors the non-isolated caveat on the 4d side (toric.py).
+    """
+    if any(int(l) > 1 for l in edge_lengths):
+        return ("non-isolated singularity (a boundary edge has interior lattice "
+                "points): a non-compact A-type singular line carries a 7d flavor "
+                "sector, so these are link readings of a non-isolated geometry, "
+                "not of an isolated interacting 5d SCFT")
+    return ""
+
+
 def flavor_rank(boundary_points: int) -> int:
     """Rank of the 5d SCFT's flavor symmetry (= number of mass parameters):
 

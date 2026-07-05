@@ -250,7 +250,11 @@ shot: the orbifold `quivers` table, a `toric_quivers` table (explicit-quiver
 geometries: quiver sizes, `dim_conf`, the geometric `B − 1` cross-check,
 lattice-point counts, and the full arrows + superpotential as JSON), and a
 `toric_diagrams` table (diagram-only geometries: `#gauge = 2·area`, `dim_conf`,
-boundary/interior points, edge lengths, polygon as JSON).
+boundary/interior points, edge lengths, polygon as JSON). Both toric tables
+also carry the 5d SCFT readings of the same diagram (M-theory on the CY3 /
+the (p,q) web): `rank_5d` (= interior points), `flavor_rank_5d` (= `B − 3`) and
+`one_form_5d` (the 1-form symmetry, e.g. `'Z_3'`); rebuilding an existing db
+adds the columns in place.
 
 ```python
 from conformalmanifold.database import (build_toric_database,

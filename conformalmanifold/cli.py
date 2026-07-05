@@ -33,6 +33,23 @@ def _interactive():
     return make_group(names[int(choice)])
 
 
+def _print_fived(geom):
+    """Append the AdS6/CFT5 reading of the geometry's toric diagram (fived.py)."""
+    from . import fived as F
+    from .toric import convex_hull, polygon_signature
+    diagram = getattr(geom, "diagram", None)
+    hull = geom.hull() if hasattr(geom, "hull") else (
+        convex_hull(diagram) if diagram else None)
+    if not hull:
+        return
+    _, B, I, edges = polygon_signature(hull)
+    print(f"  AdS6/CFT5: rank = {I},  flavor rank = {F.flavor_rank(B)},  "
+          f"1-form symmetry = {F.abelian_label(F.one_form_symmetry(hull))}")
+    note = F.non_isolated_note(edges)
+    if note:
+        print(f"    note: {note}")
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
 
@@ -49,7 +66,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if argv and argv[0] == "--toric":
         from .toric import make_toric
-        print(make_toric(argv[1]))
+        geom = make_toric(argv[1])
+        print(geom)
+        _print_fived(geom)
         return 0
 
     if argv and argv[0] == "--serve":
