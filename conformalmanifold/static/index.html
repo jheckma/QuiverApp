@@ -515,6 +515,7 @@
       <div class="kv"><span class="k">defect group &nbsp;D = &Gamma;<sub>e</sub> &oplus; &Gamma;<sub>m</sub> &nbsp;(lines &oplus; surfaces)</span><span class="v" id="t-defect"></span></div>
       <div class="kv"><span class="k">Dirac pairing &nbsp;(canonical generators)</span><span class="v" id="t-pairing"></span></div>
       <div class="kv"><span class="k">global forms &nbsp;(# polarizations of D)</span><span class="v" id="t-globforms"></span></div>
+      <div class="kv"><span class="k">cubic anomaly &nbsp;(coeff. of &int;c<sub>2</sub><sup>3</sup> in the SymTFT)</span><span class="v" id="t-cubic"></span></div>
       <div class="note hide" id="t-fived-note"></div>
     </div>
 
@@ -1078,6 +1079,12 @@ function renderResultGeometry(d){
       $("t-globforms").textContent = dg.num_global_forms ?? (dg.isolated ? "—" : "n/a (non-isolated)");
     } else {
       $("t-defect").textContent = "—"; $("t-pairing").textContent = "—"; $("t-globforms").textContent = "—";
+    }
+    const cu=f.cubic;
+    if(cu && cu.status==="computed"){
+      $("t-cubic").textContent = cu.coefficient + (cu.family ? `   (${cu.family})` : "");
+    } else {
+      $("t-cubic").textContent = cu ? cu.note : "—";
     }
     const fnote = [f.note, dg && dg.note].filter(Boolean).join("  ");
     if(fnote){ $("t-fived-note").textContent=fnote; $("t-fived-note").classList.remove("hide"); }

@@ -149,7 +149,8 @@ CREATE TABLE IF NOT EXISTS toric_quivers (
     one_form_5d     TEXT,      -- 5d 1-form symmetry, e.g. 'Z_3' / 'trivial'
     defect_group_5d TEXT,      -- D = Gamma (+) Gamma, e.g. 'Z_3 (+) Z_3'
     pairing_5d      TEXT,      -- canonical Dirac pairing, e.g. '1/3' (isolated)
-    n_global_forms_5d INTEGER  -- # polarizations of D (isolated; else NULL)
+    n_global_forms_5d INTEGER, -- # polarizations of D (isolated; else NULL)
+    cubic_anomaly_5d  TEXT     -- coeff of int c2^3 (published families; else NULL)
 );
 """
 
@@ -158,24 +159,28 @@ _TORIC_COLS = ["label", "family", "description", "num_nodes", "num_fields",
                "interior_points", "norm_area2", "edge_lengths", "diagram",
                "arrows", "superpotential", "rank_5d", "flavor_rank_5d",
                "one_form_5d", "defect_group_5d", "pairing_5d",
-               "n_global_forms_5d"]
+               "n_global_forms_5d", "cubic_anomaly_5d"]
 
 # columns added after the first release: ALTERed into pre-existing db files
 _TORIC_5D_COLS = {"rank_5d": "INTEGER", "flavor_rank_5d": "INTEGER",
                   "one_form_5d": "TEXT", "defect_group_5d": "TEXT",
-                  "pairing_5d": "TEXT", "n_global_forms_5d": "INTEGER"}
+                  "pairing_5d": "TEXT", "n_global_forms_5d": "INTEGER",
+                  "cubic_anomaly_5d": "TEXT"}
 
 
 def _fived_defect_cols(hull) -> dict:
-    """The defect-group columns shared by both toric tables."""
+    """The defect-group + cubic-anomaly columns shared by both toric tables."""
     if not hull:
         return {"defect_group_5d": None, "pairing_5d": None,
-                "n_global_forms_5d": None}
+                "n_global_forms_5d": None, "cubic_anomaly_5d": None}
     dg = fived.defect_group(hull)
+    cu = fived.cubic_anomaly(hull)
     return {
         "defect_group_5d": dg["label"],
         "pairing_5d": ", ".join(dg["pairing"]) if dg["pairing"] else None,
         "n_global_forms_5d": dg["num_global_forms"],
+        "cubic_anomaly_5d": (cu["coefficient"] if cu["status"] == "computed"
+                             else None),
     }
 
 
@@ -258,7 +263,8 @@ CREATE TABLE IF NOT EXISTS toric_diagrams (
     one_form_5d     TEXT,      -- 5d 1-form symmetry, e.g. 'Z_3' / 'trivial'
     defect_group_5d TEXT,      -- D = Gamma (+) Gamma, e.g. 'Z_3 (+) Z_3'
     pairing_5d      TEXT,      -- canonical Dirac pairing, e.g. '1/3' (isolated)
-    n_global_forms_5d INTEGER  -- # polarizations of D (isolated; else NULL)
+    n_global_forms_5d INTEGER, -- # polarizations of D (isolated; else NULL)
+    cubic_anomaly_5d  TEXT     -- coeff of int c2^3 (published families; else NULL)
 );
 """
 
@@ -266,7 +272,7 @@ _TORIC_DIAGRAM_COLS = ["label", "family", "description", "num_gauge", "dim_conf"
                        "boundary_points", "interior_points", "norm_area2",
                        "edge_lengths", "diagram", "note", "rank_5d",
                        "flavor_rank_5d", "one_form_5d", "defect_group_5d",
-                       "pairing_5d", "n_global_forms_5d"]
+                       "pairing_5d", "n_global_forms_5d", "cubic_anomaly_5d"]
 
 
 def toric_diagram_record(d) -> dict:

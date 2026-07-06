@@ -4,7 +4,7 @@ from conformalmanifold import bibliography as B
 
 
 def test_entries_well_formed():
-    assert len(B.ENTRIES) == 19
+    assert len(B.ENTRIES) == 21
     keys = [e["key"] for e in B.ENTRIES]
     assert len(set(keys)) == len(keys)                     # unique texkeys
     for e in B.ENTRIES:
@@ -21,9 +21,10 @@ def test_card_ordering_and_captions():
     assert keys[0] == "Douglas:1996sw"
     assert keys[-1] == "DHoker:2016ujz"
     # the 5d/AdS6 block sits together at the end, in concept order
-    tail = keys[-6:]
+    tail = keys[-8:]
     assert tail == ["Seiberg:1996bd", "Intriligator:1997pq", "Morrison:2020ool",
-                    "Albertini:2020mdx", "Apruzzi:2021nmk", "DHoker:2016ujz"]
+                    "Albertini:2020mdx", "Apruzzi:2021nmk", "Gukov:2020btk",
+                    "BenettiGenolini:2020doj", "DHoker:2016ujz"]
     # captions are physicist-facing: no internal project language
     for e in B.ENTRIES:
         low = e["role"].lower()
@@ -67,7 +68,7 @@ def test_latex_bibliography_block():
 
 def test_entries_json_payload():
     j = B.entries_json()
-    assert len(j["entries"]) == 19
+    assert len(j["entries"]) == 21
     assert all("latex" in e and "bibtex" in e for e in j["entries"])
-    assert j["bibtex_all"].count("@article") == 19
+    assert j["bibtex_all"].count("@article") == 21
     assert "INSPIRE" in j["fetched_from"]

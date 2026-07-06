@@ -143,6 +143,33 @@ def test_defect_group_non_isolated_is_caveated():
         assert "screening" in dg["note"]
 
 
+def test_cubic_anomaly_anchors():
+    # published closed forms (arXiv:2112.02092: eqs. 5.33, 5.42, 4.34 = 5.48)
+    def cubic(pts):
+        c = F.cubic_anomaly(T.convex_hull(pts))
+        return (c["status"], c["coefficient"])
+    # B_N family: B_3 = dP0 = E0 -> 1/9 (in both the library frame and table-4 frame)
+    assert cubic([(1, 0), (0, 1), (-1, -1)]) == ("computed", "1/9")
+    assert cubic([(2, 0), (1, 2), (0, 1)]) == ("computed", "1/9")
+    assert cubic([(3, 0), (1, 3), (0, 1)]) == ("computed", "1/7")      # B_4
+    assert cubic([(4, 0), (1, 4), (0, 1)]) == ("computed", "2/13")     # B_5
+    # su(p)_q family: q p (p-1)(p-2) / (6 gcd^3); su(2)_0 and su(p)_0 vanish
+    assert cubic([(-1, 0), (1, 0), (0, 1), (0, -1)]) == ("computed", "0")    # su(2)_0 = F0
+    assert cubic([(-1, 0), (0, 0), (1, 4), (0, 4)]) == ("computed", "0")     # su(4)_0
+    assert cubic([(-1, 0), (0, 0), (1, 2), (0, 4)]) == ("computed", "1")     # su(4)_2
+    assert cubic([(-1, 0), (0, 0), (1, 3), (0, 6)]) == ("computed", "20/9")  # su(6)_3
+    assert cubic([(-1, 0), (0, 0), (1, 4), (0, 6)]) == ("computed", "5")     # su(6)_2
+    # trivial 1-form symmetry -> 0
+    assert cubic([(0, 0), (1, 0), (1, 1), (0, 1)]) == ("computed", "0")      # conifold
+    # honest fallbacks: Jeff's exact wording
+    for pts in ([(0, 0), (2, 0), (0, 2)],                 # non-isolated
+                [(-4, -4), (3, 0), (-3, -1)]):            # isolated Z_17, no family
+        c = F.cubic_anomaly(T.convex_hull(pts))
+        assert c["status"] == "not_computed"
+        assert c["note"] == "not computed — no published closed form"
+        assert c["coefficient"] is None
+
+
 def test_sigma_divisors():
     assert [F.sigma_divisors(d) for d in (1, 2, 3, 4, 6, 12)] == [1, 3, 4, 7, 12, 28]
 
@@ -183,9 +210,10 @@ def test_database_carries_fived_columns(tmp_path):
     try:
         # explicit-quiver table: dP0 = local P^2 (E_0)
         row = conn.execute("SELECT rank_5d, flavor_rank_5d, one_form_5d, "
-                           "defect_group_5d, pairing_5d, n_global_forms_5d "
+                           "defect_group_5d, pairing_5d, n_global_forms_5d, "
+                           "cubic_anomaly_5d "
                            "FROM toric_quivers WHERE label='dP0'").fetchone()
-        assert row == (1, 0, "Z_3", "Z_3 (+) Z_3", "1/3", 4)
+        assert row == (1, 0, "Z_3", "Z_3 (+) Z_3", "1/3", 4, "1/9")
         # diagram-only table: dP3 (E_3)
         row = conn.execute("SELECT rank_5d, flavor_rank_5d, one_form_5d, "
                            "defect_group_5d, pairing_5d, n_global_forms_5d "

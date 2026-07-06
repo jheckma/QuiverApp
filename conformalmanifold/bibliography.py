@@ -6,7 +6,8 @@ Entries are ordered roughly by the app cards they support: the orbifold tab
 (quiver construction, conformal manifold, superconformal data), the toric tab
 (webs/diagrams, named geometries, R-charges, brane tilings and the inverse
 algorithm, Seiberg duality), and the AdS6/CFT5 card (5d fixed points,
-geometric engineering, defect groups, SymTFT, the AdS6 duals).
+geometric engineering, defect groups, SymTFT, higher-form anomalies, the
+AdS6 duals).
 
 Each entry carries paper-style display fields, the INSPIRE BibTeX record, and
 helpers producing a LaTeX `thebibliography` block.  Served via
@@ -270,6 +271,34 @@ ENTRIES = [
         "doi": '10.1007/s00220-023-04737-2',
         "role": 'symmetry TFTs from reducing string theory on the boundary geometry',
         "bibtex": '@article{Apruzzi:2021nmk,\n    author = "Apruzzi, Fabio and Bonetti, Federico and Garc{\\\'\\i}a Etxebarria, I{\\~n}aki and Hosseini, Saghar S. and Schafer-Nameki, Sakura",\n    title = "{Symmetry TFTs from String Theory}",\n    eprint = "2112.02092",\n    archivePrefix = "arXiv",\n    primaryClass = "hep-th",\n    doi = "10.1007/s00220-023-04737-2",\n    journal = "Commun. Math. Phys.",\n    volume = "402",\n    number = "1",\n    pages = "895--949",\n    year = "2023"\n}',
+    },
+    {
+        "key": 'Gukov:2020btk',
+        "authors": 'S. Gukov, P. Hsin and D. Pei',
+        "title": 'Generalized global symmetries of $T[M]$ theories. Part I',
+        "journal": 'JHEP',
+        "volume": '04',
+        "year": '2021',
+        "pages": '232',
+        "eprint": '2010.15890',
+        "category": 'hep-th',
+        "doi": '10.1007/JHEP04(2021)232',
+        "role": "cubic 't Hooft anomalies of higher-form symmetries",
+        "bibtex": '@article{Gukov:2020btk,\n    author = "Gukov, Sergei and Hsin, Po-Shen and Pei, Du",\n    title = "{Generalized global symmetries of $T[M]$ theories. Part I}",\n    eprint = "2010.15890",\n    archivePrefix = "arXiv",\n    primaryClass = "hep-th",\n    reportNumber = "CALT-TH-2020-045",\n    doi = "10.1007/JHEP04(2021)232",\n    journal = "JHEP",\n    volume = "04",\n    pages = "232",\n    year = "2021"\n}',
+    },
+    {
+        "key": 'BenettiGenolini:2020doj',
+        "authors": 'P. Benetti Genolini and L. Tizzano',
+        "title": 'Instantons, symmetries and anomalies in five dimensions',
+        "journal": 'JHEP',
+        "volume": '04',
+        "year": '2021',
+        "pages": '188',
+        "eprint": '2009.07873',
+        "category": 'hep-th',
+        "doi": '10.1007/JHEP04(2021)188',
+        "role": 'instanton symmetries and mixed anomalies in five dimensions',
+        "bibtex": '@article{BenettiGenolini:2020doj,\n    author = "Benetti Genolini, Pietro and Tizzano, Luigi",\n    title = "{Instantons, symmetries and anomalies in five dimensions}",\n    eprint = "2009.07873",\n    archivePrefix = "arXiv",\n    primaryClass = "hep-th",\n    doi = "10.1007/JHEP04(2021)188",\n    journal = "JHEP",\n    volume = "04",\n    pages = "188",\n    year = "2021"\n}',
     },
     {
         "key": 'DHoker:2016ujz',

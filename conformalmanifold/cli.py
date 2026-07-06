@@ -45,11 +45,17 @@ def _print_fived(geom):
     _, B, I, edges = polygon_signature(hull)
     print(f"  AdS6/CFT5: rank = {I},  flavor rank = {F.flavor_rank(B)},  "
           f"1-form symmetry = {F.abelian_label(F.one_form_symmetry(hull))}")
+    cu = F.cubic_anomaly(hull)
     dg = F.defect_group(hull)
     if dg["isolated"]:
         pairing = ", ".join(dg["pairing"]) if dg["pairing"] else "-"
         print(f"    defect group D = {dg['label']},  canonical pairing = {pairing},"
               f"  global forms = {dg['num_global_forms']}")
+        if cu["status"] == "computed":
+            fam = f"  ({cu['family']})" if cu["family"] else ""
+            print(f"    cubic anomaly (coeff of int c2^3) = {cu['coefficient']}{fam}")
+        else:
+            print(f"    cubic anomaly: {cu['note']}")
     else:
         print(f"    defect group (link reading) = {dg['label']};  pairing/global "
               "forms n/a for a non-isolated singularity")

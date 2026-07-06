@@ -299,6 +299,79 @@ def defect_group(hull) -> dict:
     }
 
 
+NOT_COMPUTED = "not computed — no published closed form"
+
+
+def cubic_anomaly(hull) -> dict:
+    """Cubic 't Hooft anomaly of the 5d 1-form symmetry: the coefficient of
+    int c_2^3 in the 6d SymTFT (the anomaly of Gukov-Hsin-Pei,
+    arXiv:2010.15890).  It refines the global-form count: polarizations that
+    would gauge an anomalous subgroup are obstructed.
+
+    Only PUBLISHED closed forms are reported (Apruzzi-Bonetti-Garcia
+    Etxebarria-Hosseini-Schafer-Nameki, arXiv:2112.02092); the general web
+    evaluation needs case-by-case counterterm fixing (their sec. 5.3), so
+    everything else honestly returns "not computed -- no published closed
+    form" (NOT_COMPUTED above):
+
+      * trivial 1-form symmetry            -> 0
+      * su(p)_q webs (Y^{p,q} trapezoids)  -> q p (p-1)(p-2) / (6 gcd(p,q)^3)
+                                              [eq. 5.42; su(2)_0 -> 0, eq. 5.33]
+      * B_N triangles (B_3 = local P^2)    -> (N-1)(N-2) / (6 (N^2-3N+3))
+                                              [eqs. 4.34 = 5.48, two routes]
+
+    Conventions: coefficients as published, for the canonical orientation
+    (0 <= q < p); an orientation flip (parity) reverses the sign.  Mixed
+    anomalies with the instanton U(1) are not included.
+
+    Returns {status: 'computed'|'not_computed', coefficient: str|None,
+             family: str|None, note: str}.
+    """
+    from math import isqrt
+    from .toric import convex_hull, polygon_signature, gl2z_equiv
+
+    hull = convex_hull([(int(x), int(y)) for (x, y) in hull])
+    area2, B, I, edge_lengths = polygon_signature(hull)
+    not_computed = {"status": "not_computed", "coefficient": None,
+                    "family": None, "note": NOT_COMPUTED}
+    if any(int(e) != 1 for e in edge_lengths):        # non-isolated: out of scope
+        return not_computed
+
+    factors = one_form_symmetry(hull)
+    if not factors:
+        return {"status": "computed", "coefficient": "0",
+                "family": "trivial 1-form symmetry", "note": ""}
+    d = factors[0]                                     # isolated toric: cyclic
+
+    # su(p)_q family: trapezoid {(-1,0),(0,0),(1,p-q),(0,p)}, 2*area = 2p
+    if area2 % 2 == 0 and area2 >= 4:
+        p = area2 // 2
+        for q in range(p):
+            g = gcd(p, q) if q else p                  # gcd(p, 0) = p
+            if g != d:
+                continue
+            ref = convex_hull([(-1, 0), (0, 0), (1, p - q), (0, p)])
+            if gl2z_equiv(hull, ref):
+                coeff = Fraction(q * p * (p - 1) * (p - 2), 6 * d ** 3)
+                return {"status": "computed", "coefficient": str(coeff),
+                        "family": f"su({p})_{q} web  (Y^{{{p},{q}}})",
+                        "note": ""}
+
+    # B_N family: triangle {(N-1,0),(1,N-1),(0,1)}, 2*area = N^2-3N+3 = |Gamma|
+    s = isqrt(4 * area2 - 3)
+    if s * s == 4 * area2 - 3 and (3 + s) % 2 == 0:
+        N = (3 + s) // 2
+        if N >= 3 and d == area2:
+            ref = convex_hull([(N - 1, 0), (1, N - 1), (0, 1)])
+            if gl2z_equiv(hull, ref):
+                coeff = Fraction((N - 1) * (N - 2), 6 * (N * N - 3 * N + 3))
+                fam = f"B_{N} web" + ("  (local P^2, E_0)" if N == 3 else "")
+                return {"status": "computed", "coefficient": str(coeff),
+                        "family": fam, "note": ""}
+
+    return not_computed
+
+
 def _defect_label(factors: list[int]) -> str:
     """Label for D = Gamma (+) Gamma, e.g. 'Z_3 (+) Z_3'."""
     if not factors:

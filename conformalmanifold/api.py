@@ -260,6 +260,8 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None,
         "note": F.non_isolated_note(edges), # '' unless the singularity is non-isolated
         # full defect group D = Gamma_e (+) Gamma_m, canonical pairing, # global forms
         "defect_group": F.defect_group(hull),
+        # cubic 't Hooft anomaly of the 1-form symmetry (published closed forms)
+        "cubic": F.cubic_anomaly(hull),
     }
 
     # Inverse algorithm: reconstruct a quiver + brane tiling from the diagram
