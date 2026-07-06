@@ -1611,6 +1611,49 @@ def square_gauge_faces(t):
     return sorted(lab[i] for i, orb in enumerate(faces) if len(orb) == 4)
 
 
+def face_polygons(t):
+    """Per gauge face: its displayed node id, whether it is square (an
+    available urban-renewal move), and its boundary polygon in the SAME
+    universal-cover coordinates the web tiling drawing uses (white vertex at
+    `white_glob[w]`, black at `black_glob[b] - h_e`), so the frontend can
+    overlay clickable face regions on the drawn dimer.
+
+    The polygon walks the face's dart orbit (phi = sigma o alpha, the trace
+    `square_gauge_faces`/`urban_renewal` use), taking each dart's START vertex.
+    Consecutive darts share a vertex; matching the two drawn representatives
+    fixes the integer translate of each edge: across a shared black vertex the
+    translate shifts by h_next - h_prev, across a shared white vertex it is
+    unchanged.  The walk closes because the face-cocycle condition
+    (sum of signed homologies around a gauge face = 0) telescopes exactly to
+    the accumulated shift.  Faces are returned sorted by node id."""
+    dimer = t.to_dimer()
+    faces, _ = _trace_faces(dimer, _FACE_HAND)
+    lab = t.face_to_node or list(range(len(faces)))
+    wg, bg = t.white_glob, t.black_glob
+    eh = [f["homology"] for f in t.fields]
+    out = []
+    for tf, orb in enumerate(faces):
+        poly = []
+        tx, ty = 0, 0                       # integer translate of current edge
+        prev = None
+        for (e, s) in orb:
+            if prev is not None:
+                pe, ps = prev
+                if ps == 1:                 # shared vertex is black
+                    tx += eh[e][0] - eh[pe][0]
+                    ty += eh[e][1] - eh[pe][1]
+            f = t.fields[e]
+            if s == 1:                      # start = white vertex
+                x, y = wg[f["white"]][0] + tx, wg[f["white"]][1] + ty
+            else:                           # start = black vertex (drawn at -h)
+                x = bg[f["black"]][0] - eh[e][0] + tx
+                y = bg[f["black"]][1] - eh[e][1] + ty
+            poly.append([round(x, 5), round(y, 5)])
+            prev = (e, s)
+        out.append({"node": lab[tf], "square": len(orb) == 4, "poly": poly})
+    return sorted(out, key=lambda d: d["node"])
+
+
 def dualize_path(vertices, path, start_phase: int = 0):
     """Apply a SEQUENCE of user-chosen urban-renewal (Seiberg duality) moves.
 
@@ -1813,6 +1856,10 @@ def _tiling_json(t, vertices) -> dict:
             # per-edge homology (white -> black+h is the true universal-cover
             # edge); needed to draw the tiling without collapsing edges.
             "edge_h": [f["homology"] for f in t.fields],
+            # gauge-face boundary polygons in the same coordinates, so the
+            # frontend can label faces and make SQUARE faces clickable
+            # Seiberg-duality (urban renewal) moves.
+            "faces": face_polygons(t),
         },
         "checks": checks,
         # gauge nodes with N_f = 2N_c (square faces): the available
