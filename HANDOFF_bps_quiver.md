@@ -105,3 +105,49 @@ Verification after this correction:
 - Fresh dev server started on `http://127.0.0.1:8018/#bps`
 - HTTP smoke test for dP0 geometry returned adjacency `[[0,3,0],[0,0,3],[3,0,0]]` from the inverse brane-tiling quiver and stable charges `gamma_0`, `3 gamma_0 + gamma_1`, `gamma_2` for sequence `0 1 2`.
 
+## 2026-07-06 update: toric diagram, SW curve, clickable BPS mutations
+
+User requested that the BPS tab show the toric diagram, expose the underlying Seiberg-Witten curve, and use the same clickable-node interface for mutations.
+
+Changes made:
+
+- `conformalmanifold/api.py`
+  - Added Newton-polynomial helpers for the toric diagram.
+  - `summarize_bps_toric_quiver(...)` now includes `source.lattice_points` from the toric resolution and `source.sw_curve`, e.g. `H(x,y) = c[-1,-1] x^-1 y^-1 + c[0,0] + c[0,1] y + c[1,0] x = 0` for dP0.
+
+- `conformalmanifold/static/index.html`
+  - BPS tab now has a `Toric diagram and SW curve` panel.
+  - `bpsDrawToric(...)` renders the toric polygon and lattice points from the same geometry payload used to build the BPS quiver.
+  - `renderBpsGeometry(...)` fills the SW/Newton curve panel from `source.sw_curve`, with a frontend fallback if the backend field is absent.
+  - The BPS quiver now calls `drawQuiver(..., {clickable:true})` and registers `handleBpsQuiverClick(...)` on `#bps-quiver-svg`.
+  - Clicking a BPS quiver node appends that node id to `#bps-sequence` and recomputes the chamber.
+
+- `tests/test_bps.py`
+  - Added assertions that geometry-sourced BPS output carries lattice points and the SW curve.
+
+Verification performed after this update:
+
+- `python -m py_compile conformalmanifold\api.py conformalmanifold\bps.py conformalmanifold\webapp.py` -> passed
+- `python -m pytest tests\test_bps.py -q` -> 10 passed
+- `python -m pytest -q` -> 336 passed
+- API smoke through `api.summarize_bps_toric_quiver(...)` returned the dP0 curve and lattice points.
+- Live route smoke against `http://127.0.0.1:8019/api/bps_quiver?source=toric&pts=1,0;0,1;-1,-1&sequence=0%201%202` returned stable count `3`, lattice points, and the SW curve.
+- Static frontend smoke confirmed `bps-toric-svg`, `bps-sw-curve`, `bpsDrawToric`, `renderBpsGeometry`, `handleBpsQuiverClick`, clickable `drawQuiver`, and the BPS quiver click listener are present.
+
+Browser QA note:
+
+- Browser plugin instructions were followed. The browser runtime loaded, but `agent.browsers.list()` returned `[]`, so no in-app browser/Chrome instance was available for screenshot/click QA from Codex.
+- Node is also not installed (`node` command not found), so a JS DOM execution smoke could not be run. Verification used Python tests, HTTP checks, and static HTML checks instead.
+
+Current fresh dev server for this update:
+
+```text
+http://127.0.0.1:8019/#bps
+```
+
+Next likely BPS work:
+
+- Add a clear way to remove/reset the clicked mutation sequence without leaving the BPS tab.
+- If richer SW data is desired, promote `source.sw_curve` from a symbolic Newton polynomial to a structured list of moduli/coefficients and known mass constraints for each named geometry.
+- Run visual browser QA once a browser instance is actually registered with the Browser plugin.
+
