@@ -127,6 +127,11 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"groups": list_groups()})
             return
 
+        if path == "/api/bibliography":
+            from . import bibliography
+            self._json(bibliography.entries_json())
+            return
+
         if path == "/api/compute":
             q = parse_qs(parsed.query)
             name = q.get("name", [""])[0]

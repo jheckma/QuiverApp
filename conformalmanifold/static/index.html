@@ -96,6 +96,29 @@
   .note{color:var(--warn);font-size:12.5px;margin-top:10px}
   .foot{color:var(--mut);font-size:12px;margin-top:22px;text-align:center}
   .spin{color:var(--mut);padding:30px;text-align:center}
+  /* bibliography */
+  #bib-link{position:absolute;top:6px;right:2px;color:var(--accent);font-size:13px;
+            font-weight:600;text-decoration:none;border:1px solid var(--line);
+            border-radius:999px;padding:5px 13px;background:var(--panel)}
+  #bib-link:hover{border-color:var(--accent)}
+  #bib-overlay{position:fixed;inset:0;background:rgba(5,8,14,.72);z-index:50;
+               display:flex;align-items:flex-start;justify-content:center;
+               padding:6vh 16px;overflow:auto}
+  #bib-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+             max-width:860px;width:100%;padding:18px 22px;box-shadow:0 18px 60px rgba(0,0,0,.5)}
+  #bib-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap}
+  #bib-list{margin:10px 0 2px;padding-left:26px}
+  #bib-list li{margin:0 0 14px;font-size:13.5px;line-height:1.55}
+  .bib-title{font-style:italic}
+  .bib-role{color:var(--mut);font-size:12px;display:block;margin-top:2px}
+  .bib-links a{color:var(--accent);text-decoration:none}
+  .bib-links a:hover{text-decoration:underline}
+  .bib-btn{background:none;border:0;color:var(--accent);cursor:pointer;font-size:12px;
+           padding:0 4px;font-weight:600}
+  .bib-btn:hover{text-decoration:underline}
+  pre.bibtex{background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+             padding:9px 12px;font-size:11.5px;line-height:1.5;overflow:auto;margin:7px 0 0;
+             font-family:ui-monospace,Consolas,monospace;color:var(--ink)}
   /* mode tabs */
   .tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin:6px 0 0}
   .tab{background:none;color:var(--mut);border:0;border-bottom:2px solid transparent;
@@ -156,12 +179,27 @@
 </style>
 </head>
 <body>
-<header>
+<header style="position:relative">
   <h1>Conformal manifolds of <span class="cy">quiver gauge theories</span></h1>
   <div class="sub">N D3-branes probing a Calabi&ndash;Yau singularity &mdash; read off
      dim<sub>&#8450;</sub> of the conformal manifold from the orbifold group, or from a
      toric (p,q) web you build.</div>
+  <a href="#" id="bib-link" title="the papers behind the physics in this app">references</a>
 </header>
+
+<div id="bib-overlay" class="hide">
+  <div id="bib-panel">
+    <div id="bib-head">
+      <h2 style="margin:0;font-size:15px">References</h2>
+      <span class="help" id="bib-src" style="margin:0"></span>
+      <span style="flex:1"></span>
+      <button type="button" class="ex" id="bib-copy-bibtex">copy all BibTeX</button>
+      <button type="button" class="ex" id="bib-copy-latex">copy all \bibitem</button>
+      <button type="button" class="ex" id="bib-close">close &times;</button>
+    </div>
+    <ol id="bib-list"></ol>
+  </div>
+</div>
 <main>
   <div class="tabs">
     <button class="tab on" id="tab-orb">Orbifold &nbsp;C&sup3;/&Gamma;</button>
@@ -1423,6 +1461,71 @@ document.querySelectorAll("button.preset[data-pts]").forEach(b=>{
   });
 });
 $("iv-phase-cycle").addEventListener("click", ()=> showPhase(_ivPhaseIdx + 1));
+
+/* ---- bibliography overlay ---- */
+let _bibLoaded = false;
+function texToHtml(s){
+  // minimal LaTeX-math -> HTML for titles: $AdS_6\times S^2$ etc.
+  return s.replace(/\$([^$]*)\$/g, (_, m) => m
+      .replace(/\\times/g, " × ")
+      .replace(/_\{([^}]*)\}/g, "<sub>$1</sub>").replace(/_([A-Za-z0-9])/g, "<sub>$1</sub>")
+      .replace(/\^\{([^}]*)\}/g, "<sup>$1</sup>").replace(/\^([A-Za-z0-9])/g, "<sup>$1</sup>")
+      .replace(/\\/g, ""));
+}
+function copyText(txt, btn){
+  (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject())
+    .then(()=>{ const t=btn.textContent; btn.textContent="copied ✓";
+                setTimeout(()=>btn.textContent=t, 1200); })
+    .catch(()=>{ window.prompt("copy:", txt); });
+}
+let _bibData = null;
+async function openBib(){
+  $("bib-overlay").classList.remove("hide");
+  if(_bibLoaded) return;
+  try{
+    _bibData = await (await fetch("/api/bibliography")).json();
+  }catch(e){
+    $("bib-list").innerHTML = `<li>could not load bibliography: ${e}</li>`;
+    return;
+  }
+  _bibLoaded = true;
+  $("bib-src").textContent = "citation data: " + _bibData.fetched_from;
+  $("bib-list").innerHTML = _bibData.entries.map((e,i)=>{
+    const pub = e.journal ? `${e.journal} <b>${e.volume}</b> (${e.year}) ${e.pages}, ` : "";
+    const doi = e.doi ? ` · <a href="https://doi.org/${e.doi}" target="_blank" rel="noopener">doi</a>` : "";
+    return `<li>${e.authors},
+      <span class="bib-title">&ldquo;${texToHtml(e.title)},&rdquo;</span>
+      ${pub}<span class="bib-links"><a href="https://arxiv.org/abs/${e.eprint}" target="_blank" rel="noopener">arXiv:${e.eprint} [${e.category}]</a>${doi}</span>
+      <button type="button" class="bib-btn" data-bib="${i}">BibTeX ▾</button>
+      <pre class="bibtex hide" id="bibtex-${i}"></pre>
+      <span class="bib-role">${e.role}</span></li>`;
+  }).join("");
+  document.querySelectorAll(".bib-btn").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      const i=b.dataset.bib, pre=$("bibtex-"+i);
+      if(pre.classList.contains("hide")){
+        pre.textContent=_bibData.entries[i].bibtex;
+        pre.classList.remove("hide"); b.textContent="BibTeX ▴ (click text to copy)";
+        pre.style.cursor="pointer";
+        pre.onclick=()=>copyText(_bibData.entries[i].bibtex, b);
+      } else { pre.classList.add("hide"); b.textContent="BibTeX ▾"; }
+    });
+  });
+}
+$("bib-link").addEventListener("click", e=>{ e.preventDefault(); openBib(); });
+$("bib-close").addEventListener("click", ()=>$("bib-overlay").classList.add("hide"));
+$("bib-overlay").addEventListener("click", e=>{
+  if(e.target===$("bib-overlay")) $("bib-overlay").classList.add("hide");
+});
+document.addEventListener("keydown", e=>{
+  if(e.key==="Escape") $("bib-overlay").classList.add("hide");
+});
+$("bib-copy-bibtex").addEventListener("click", e=>{
+  if(_bibData) copyText(_bibData.bibtex_all, e.target);
+});
+$("bib-copy-latex").addEventListener("click", e=>{
+  if(_bibData) copyText(_bibData.latex_all, e.target);
+});
 
 /* ---- tab switching ---- */
 function showTab(which){
