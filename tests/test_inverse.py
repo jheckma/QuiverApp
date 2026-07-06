@@ -6,9 +6,9 @@ from conformalmanifold.inverse import (
     inverse_quiver, inverse_quiver_json, kasteleyn_newton_polygon,
     forward_extract, canonical_adjacency, phase_invariant, solve_homology,
     urban_renewal, enumerate_toric_phases, integrate_masses, DimerGraph,
-    square_gauge_faces, dualize_path, dualize_path_json, seiberg_path,
-    quiver_seiberg, _strand_polygon, _trace_faces, _FACE_HAND,
-    _integer_kernel)
+    square_gauge_faces, face_polygons, dualize_path, dualize_path_json,
+    seiberg_path, quiver_seiberg, _strand_polygon, _trace_faces, _FACE_HAND,
+    _integer_kernel, _normalize_tiling, inverse_phases_json)
 from conformalmanifold import toric as T
 from conformalmanifold.chartable import build_character_table
 from conformalmanifold.groups import cyclic
@@ -605,3 +605,48 @@ def test_canonical_adjacency_permutation_stable():
     for p in list(itertools.permutations(range(n)))[:24]:
         B = [[A[p[i]][p[j]] for j in range(n)] for i in range(n)]
         assert canonical_adjacency(B) == key
+
+
+@pytest.mark.parametrize("label,verts,ngauge,nfields", CASES)
+def test_face_polygons_cover_close_and_flag_squares(label, verts, ngauge, nfields):
+    """The clickable-dimer face data: one boundary polygon per gauge node, in
+    the drawing's universal-cover coordinates."""
+    t = _normalize_tiling(inverse_quiver(verts), verts)
+    fps = face_polygons(t)
+    # one polygon per gauge node, in displayed-node order
+    assert [f["node"] for f in fps] == list(range(t.num_gauge)), label
+    # square flags reproduce the interactive urban-renewal move list
+    assert sorted(f["node"] for f in fps if f["square"]) == square_gauge_faces(t)
+    # every dart contributes one polygon corner: sizes sum to 2E, even, >= 4
+    sizes = sorted(len(f["poly"]) for f in fps)
+    assert sum(sizes) == 2 * t.num_fields, label
+    assert all(k % 2 == 0 and k >= 4 for k in sizes), label
+    # walk closure: the integer translate accumulated around each face orbit
+    # (including the wraparound transition) returns to zero -- the geometric
+    # face-cocycle condition that makes the drawn polygon closed
+    dimer = t.to_dimer()
+    faces, _ = _trace_faces(dimer, _FACE_HAND)
+    eh = [f["homology"] for f in t.fields]
+    for orb in faces:
+        tx = ty = 0
+        for k in range(len(orb)):
+            (e, _s), (pe, ps) = orb[k], orb[k - 1]
+            if ps == 1:
+                tx += eh[e][0] - eh[pe][0]
+                ty += eh[e][1] - eh[pe][1]
+        assert (tx, ty) == (0, 0), (label, orb)
+
+
+def test_face_polygons_on_mutated_phase():
+    """F0 phase II (urban-renewal product, schematic layout): the face data is
+    still emitted, sizes {4,8,8,4}, squares matching the move list."""
+    F0 = [(-1, 0), (1, 0), (0, 1), (0, -1)]
+    ph = inverse_phases_json(F0)
+    assert ph["available"] and ph["num_phases"] == 2
+    for p in ph["phases"]:
+        fs = p["tiling"]["faces"]
+        assert [f["node"] for f in fs] == list(range(p["num_gauge"]))
+        assert sorted(f["node"] for f in fs if f["square"]) == p["square_faces"]
+        assert sum(len(f["poly"]) for f in fs) == 2 * p["num_fields"]
+    sizes = sorted(len(f["poly"]) for f in ph["phases"][1]["tiling"]["faces"])
+    assert sizes == [4, 4, 8, 8]

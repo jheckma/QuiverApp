@@ -29,6 +29,9 @@
   input{width:64px;text-align:center}
   select:focus,input:focus{border-color:var(--accent)}
   .cycgrp{display:flex;gap:8px}
+  .field-wide{flex:1 1 300px}
+  .field-full{flex:1 1 100%}
+  input.long{width:100%;max-width:420px;text-align:left}
   textarea{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line);
         border-radius:9px;padding:11px 12px;font:13px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;
         outline:none;resize:vertical}
@@ -82,6 +85,13 @@
   table.adj th{color:var(--mut);font-weight:600}
   table.adj td.z{color:#3a4252}
   table.adj td.nz{color:var(--accent);font-weight:650;background:#172033}
+  .tablewrap{overflow:auto}
+  table.log{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+  table.log td,table.log th{border-bottom:1px solid var(--line);padding:6px 8px;
+        text-align:left;font-size:12.5px;vertical-align:top}
+  table.log th{color:var(--mut);font-weight:650}
+  table.log td.num{text-align:right}
+  table.log code{color:var(--ink);font-family:ui-monospace,Consolas,monospace}
   svg{width:100%;height:auto;display:block}
   .node circle{fill:var(--panel2);stroke:var(--accent);stroke-width:1.6}
   .node.big circle{stroke:var(--accent2);stroke-width:2.2}
@@ -92,6 +102,15 @@
   .node.clk:hover circle{fill:#20304d}
   .node.sq circle{stroke:var(--warn);stroke-width:2.4;
                   filter:drop-shadow(0 0 4px rgba(255,180,84,.55))}
+  /* dimer gauge faces: every face gets a faint node label; SQUARE faces
+     (available urban-renewal moves) glow and are clickable, like .node.sq */
+  .dface polygon{fill:transparent}
+  .dface text{fill:#69758a;font-size:10px;text-anchor:middle;dominant-baseline:central;
+              pointer-events:none}
+  .dface.sq polygon{cursor:pointer;stroke:var(--warn);stroke-width:1.1;stroke-dasharray:4 3;
+                    stroke-opacity:.55}
+  .dface.sq:hover polygon{fill:rgba(255,180,84,.13);stroke-opacity:1}
+  .dface.sq text{fill:var(--warn);font-weight:700}
   .edge{stroke:#566a8f;stroke-width:1.6;fill:none}
   .note{color:var(--warn);font-size:12.5px;margin-top:10px}
   .foot{color:var(--mut);font-size:12px;margin-top:22px;text-align:center}
@@ -204,6 +223,7 @@
   <div class="tabs">
     <button class="tab on" id="tab-orb">Orbifold &nbsp;C&sup3;/&Gamma;</button>
     <button class="tab" id="tab-tor">Toric (p,q)-web builder</button>
+    <button class="tab" id="tab-bps">BPS quivers</button>
   </div>
 
   <div id="view-orbifold">
@@ -474,8 +494,9 @@
         <span class="k" style="margin:0">Seiberg duality</span>
         <span class="badge vector hide" id="iv-dual-path"></span>
         <button id="iv-dual-reset" type="button" class="hide">reset</button>
-        <span class="help" style="margin:0">click any quiver node to dualize it.
-          <span style="color:var(--warn)">glowing</span> nodes (N<sub>f</sub> = 2N<sub>c</sub>)
+        <span class="help" style="margin:0">click any quiver node &mdash; or a
+          <span style="color:var(--warn)">glowing square face</span> of the brane tiling
+          &mdash; to dualize it. glowing nodes/faces (N<sub>f</sub> = 2N<sub>c</sub>)
           stay toric (dimer urban renewal); other nodes give N<sub>c</sub> &rarr;
           N<sub>f</sub>&minus;N<sub>c</sub> &mdash; a non-toric phase with no dimer.</span>
       </div>
@@ -522,6 +543,139 @@
     <div class="foot">a toric diagram (lattice polygon) &harr; its (p,q) web &harr; a quiver gauge theory
       &nbsp;&middot;&nbsp; dim<sub>&#8450;</sub> M = B &minus; 1 &nbsp;&middot;&nbsp; #gauge = 2&times;area</div>
   </div><!-- /view-toric -->
+
+  <div id="view-bps" class="hide">
+    <div class="sub" style="margin:14px 0 10px">
+      BPS spectra for 4D KK theories from the quivers already built by the
+      geometry pipeline. Choose a toric diagram, use the current diagram from
+      the toric tab, then enter the chamber mutation sequence.
+    </div>
+
+    <div class="controls">
+      <div>
+        <label for="bps-geometry">Geometry quiver</label>
+        <select id="bps-geometry">
+          <option value="dp0" data-pts="1,0;0,1;-1,-1" data-sequence="0 1 2">dP0 = P2</option>
+          <option value="dp1" data-pts="1,0;0,1;-1,-1;0,-1" data-sequence="0 1 2 3">dP1</option>
+          <option value="f0" data-pts="-1,0;1,0;0,1;0,-1" data-sequence="0 1 2 3">F0 = P1 x P1</option>
+          <option value="c3" data-pts="0,0;1,0;0,1" data-sequence="0">C3</option>
+          <option value="conifold" data-pts="0,0;1,0;1,1;0,1" data-sequence="0 1">conifold</option>
+          <option value="current">Current toric tab diagram</option>
+          <option value="custom">Custom point list</option>
+        </select>
+      </div>
+      <div class="field-full">
+        <label for="bps-pts">Toric diagram points</label>
+        <textarea id="bps-pts" rows="3" spellcheck="false">1,0;0,1;-1,-1</textarea>
+        <div class="help">
+          Points use the same format as the toric tab: <code>x,y;x,y;...</code>.
+          The backend reconstructs the geometry quiver first, then treats that
+          quiver as the BPS quiver.
+        </div>
+        <div class="exrow">
+          presets:
+          <button type="button" class="preset bps-geom" data-geom="dp0">dP0</button>
+          <button type="button" class="preset bps-geom" data-geom="dp1">dP1</button>
+          <button type="button" class="preset bps-geom" data-geom="f0">F0</button>
+          <button type="button" class="preset bps-geom" data-geom="current">use current toric diagram</button>
+        </div>
+      </div>
+      <div class="field-wide">
+        <label for="bps-sequence">Chamber mutation sequence</label>
+        <textarea id="bps-sequence" rows="2" spellcheck="false">0 1 2</textarea>
+        <div class="help">Geometry quiver nodes are labeled 0, 1, 2, ... as in the toric quiver drawings.</div>
+      </div>
+      <div class="field-wide">
+        <label for="bps-phases">Optional phases</label>
+        <input id="bps-phases" class="long" type="text" value="" spellcheck="false">
+        <div class="help">One phase per quiver node, in units of pi.</div>
+      </div>
+      <div class="field-wide">
+        <label for="bps-masses">Optional masses</label>
+        <input id="bps-masses" class="long" type="text" value="" spellcheck="false">
+        <div class="help">Omit to use unit masses when phases are supplied.</div>
+      </div>
+      <button id="bps-go" type="button">Compute chamber</button>
+    </div>
+
+    <div id="bps-err" class="err hide"></div>
+    <div id="bps-loading" class="spin hide">computing...</div>
+
+    <div id="bps-out" class="hide">
+      <div class="result">
+        <div class="bignum" id="bps-stable-count">&mdash;</div>
+        <div>
+          <div style="font-size:15px;font-weight:600">stable BPS objects in this chamber</div>
+          <div class="formula" id="bps-summary"></div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:18px">
+        <div class="card">
+          <h2>Geometry source</h2>
+          <div class="kv"><span class="k">geometry</span><span class="v" id="bps-geom-out"></span></div>
+          <div class="kv"><span class="k">quiver builder</span><span class="v" id="bps-source-out"></span></div>
+          <div class="kv"><span class="k">mutation sequence</span><span class="v" id="bps-seq"></span></div>
+          <div class="note hide" id="bps-source-note"></div>
+        </div>
+        <div class="card">
+          <h2>Chamber status</h2>
+          <div class="kv"><span class="k">green throughout</span><span class="v" id="bps-green"></span></div>
+          <div class="kv"><span class="k">maximal green</span><span class="v" id="bps-max-green"></span></div>
+          <div class="kv"><span class="k">phase order</span><span class="v" id="bps-phase-order"></span></div>
+          <div class="kv"><span class="k">final c-vector signs</span><span class="v" id="bps-final-signs"></span></div>
+          <div id="bps-warnings" class="note hide"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:18px">
+        <h2>Toric diagram and SW curve</h2>
+        <div class="grid" style="grid-template-columns:.75fr 1.25fr">
+          <div>
+            <svg id="bps-toric-svg" viewBox="0 0 360 260"></svg>
+          </div>
+          <div>
+            <div class="help" style="margin:0 0 4px">Newton polynomial / SW curve</div>
+            <div id="bps-sw-curve" class="note" style="color:var(--ink);font-family:ui-monospace,Consolas,monospace;line-height:1.55;word-break:break-word"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:18px">
+        <h2>Geometry-built BPS quiver</h2>
+        <div class="grid" style="grid-template-columns:.8fr 1.2fr">
+          <div>
+            <div class="kv"><span class="k">nodes</span><span class="v" id="bps-nodes"></span></div>
+            <div class="kv"><span class="k">arrows</span><span class="v" id="bps-arrows"></span></div>
+            <svg id="bps-quiver-svg" viewBox="0 0 420 360"></svg>
+          </div>
+          <div>
+            <div class="help" style="margin:0 0 4px">geometry adjacency A</div>
+            <div id="bps-adjwrap" class="tablewrap"></div>
+            <div class="help" style="margin:12px 0 4px">BPS exchange matrix B = A - A<sup>T</sup></div>
+            <div id="bps-exwrap" class="tablewrap"></div>
+          </div>
+        </div>
+        <div id="bps-final-exchange" class="hide" style="margin-top:12px">
+          <div class="help" style="margin:0 0 4px">final exchange matrix after the sequence</div>
+          <div id="bps-final-exwrap" class="tablewrap"></div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:18px">
+        <div class="card">
+          <h2>Stable objects</h2>
+          <div id="bps-stable" class="tablewrap"></div>
+        </div>
+        <div class="card">
+          <h2>Mutation log</h2>
+          <div id="bps-mutations" class="tablewrap"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="foot">geometry quiver -> BPS exchange matrix -> chamber c-vectors</div>
+  </div><!-- /view-bps -->
 </main>
 
 <script>
@@ -603,8 +757,9 @@ function drawQuiver(adj, dims, svgId){
   }
 
   // opts (4th arg): {clickable:true, toric:[node ids with a dimer UR move],
-  //                   ranks:[r per node, units of N]}
+  //                   ranks:[r per node, units of N], labels:[display labels]}
   const opts = arguments[3] || {};
+  const labels = opts.labels || null;
   const toricSet = new Set(opts.toric || []);
   const ranks = opts.ranks || null;
   for(let i=0;i<n;i++){
@@ -612,8 +767,9 @@ function drawQuiver(adj, dims, svgId){
     const cls = "node" + (big?" big":"") + (toricSet.has(i)?" sq":"")
               + (opts.clickable?" clk":"");
     const dat = opts.clickable ? ` data-qnode="${i}"` : "";
+    const label = labels ? labels[i] : i;
     s+=`<g class="${cls}"><circle${dat} cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}"/>
-        <text${dat} x="${x.toFixed(1)}" y="${y.toFixed(1)}">${i}</text></g>`;
+        <text${dat} x="${x.toFixed(1)}" y="${y.toFixed(1)}">${label}</text></g>`;
     if(ranks && ranks[i] !== 1)
       s+=`<text x="${x.toFixed(1)}" y="${(y+r+11).toFixed(1)}" fill="var(--warn)" font-size="10.5"
            font-weight="700" text-anchor="middle" dominant-baseline="central">${ranks[i]}N</text>`;
@@ -740,6 +896,232 @@ function renderScft(s){
 
 $("go").addEventListener("click", compute);
 loadGroups().then(compute);
+
+/* ===================== BPS quiver finite chambers ===================== */
+let _bpsComputed = false;
+
+function esc(s){
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+function bpsVec(v){ return "[" + (v || []).join(", ") + "]"; }
+function bpsNum(x){
+  const n = Number(x);
+  return Number.isFinite(n) ? (Math.round(n*1e6)/1e6).toString() : String(x);
+}
+function bpsCentral(z){
+  if(!z) return "-";
+  const im = Number(z.im) || 0;
+  return `phase ${bpsNum(z.phase)}, mass ${bpsNum(z.mass)}, Z=${bpsNum(z.re)}${im>=0?"+":""}${bpsNum(im)}i`;
+}
+function bpsBadge(text, cls){ return `<span class="badge ${cls}">${esc(text)}</span>`; }
+function bpsFlag(v, yes, no){
+  if(v === null || v === undefined) return "not checked";
+  return v ? bpsBadge(yes, "chiral") : bpsBadge(no, "vector");
+}
+function bpsSelectedOption(){ return $("bps-geometry").selectedOptions[0]; }
+function bpsSetGeometry(value, run){
+  const sel = $("bps-geometry");
+  sel.value = value;
+  const opt = bpsSelectedOption();
+  if(value === "current"){
+    if(typeof toricPts !== "undefined") $("bps-pts").value = [...toricPts].join(";");
+  } else if(opt && opt.dataset.pts){
+    $("bps-pts").value = opt.dataset.pts;
+    $("bps-sequence").value = opt.dataset.sequence || $("bps-sequence").value;
+  }
+  if(run) computeBps();
+}
+function bpsPointString(){
+  if($("bps-geometry").value === "current" && typeof toricPts !== "undefined"){
+    const pts = [...toricPts].join(";");
+    $("bps-pts").value = pts;
+    return pts;
+  }
+  return $("bps-pts").value.trim();
+}
+function bpsPointArray(raw){
+  return (raw || []).map(p => [Number(p[0]), Number(p[1])])
+    .filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+}
+function bpsPointKey(p){ return `${p[0]},${p[1]}`; }
+function bpsOnSegment(p, a, b){
+  const cross = (p[0]-a[0])*(b[1]-a[1]) - (p[1]-a[1])*(b[0]-a[0]);
+  if(Math.abs(cross) > 1e-9) return false;
+  return p[0] >= Math.min(a[0], b[0]) && p[0] <= Math.max(a[0], b[0])
+      && p[1] >= Math.min(a[1], b[1]) && p[1] <= Math.max(a[1], b[1]);
+}
+function bpsBoundaryPoint(p, hull){
+  if(hull.length < 2) return false;
+  for(let i=0;i<hull.length;i++) if(bpsOnSegment(p, hull[i], hull[(i+1)%hull.length])) return true;
+  return false;
+}
+function bpsDrawToric(source){
+  const svg = $("bps-toric-svg");
+  const lattice = bpsPointArray(source.lattice_points);
+  const hull = bpsPointArray(source.hull);
+  const input = bpsPointArray(source.points);
+  const drawPts = lattice.length ? lattice : (input.length ? input : hull);
+  const all = [...drawPts, ...hull, ...input];
+  if(!all.length){ svg.innerHTML = ""; return; }
+  const W = 360, H = 260, pad = 28;
+  let minx = Math.min(...all.map(p=>p[0])) - 1, maxx = Math.max(...all.map(p=>p[0])) + 1;
+  let miny = Math.min(...all.map(p=>p[1])) - 1, maxy = Math.max(...all.map(p=>p[1])) + 1;
+  const spanx = Math.max(1, maxx-minx), spany = Math.max(1, maxy-miny);
+  const sc = Math.min((W-2*pad)/spanx, (H-2*pad)/spany);
+  const ox = (W - spanx*sc)/2, oy = (H - spany*sc)/2;
+  const sxp = p => ox + (p[0]-minx)*sc;
+  const syp = p => H - (oy + (p[1]-miny)*sc);
+  let s = "";
+  for(let y=Math.ceil(miny); y<=Math.floor(maxy); y++)
+    s += `<line class="${y===0?'gridaxis':'gridline'}" x1="${sxp([minx,y])}" y1="${syp([minx,y])}" x2="${sxp([maxx,y])}" y2="${syp([maxx,y])}"/>`;
+  for(let x=Math.ceil(minx); x<=Math.floor(maxx); x++)
+    s += `<line class="${x===0?'gridaxis':'gridline'}" x1="${sxp([x,miny])}" y1="${syp([x,miny])}" x2="${sxp([x,maxy])}" y2="${syp([x,maxy])}"/>`;
+  if(hull.length >= 3)
+    s += `<polygon class="toricfill" points="${hull.map(p=>`${sxp(p)},${syp(p)}`).join(" ")}"/>`;
+  const seen = new Set();
+  for(const p of drawPts){
+    const key = bpsPointKey(p);
+    if(seen.has(key)) continue;
+    seen.add(key);
+    const cls = bpsBoundaryPoint(p, hull) ? "bpt" : "ipt";
+    const r = input.some(q => bpsPointKey(q) === key) ? 6 : 4.5;
+    s += `<circle class="${cls}" cx="${sxp(p)}" cy="${syp(p)}" r="${r}"/>`;
+    s += `<text x="${sxp(p)+7}" y="${syp(p)-7}" fill="#9fb2e0" font-size="10" font-family="ui-monospace,Consolas,monospace">${key}</text>`;
+  }
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = s;
+}
+function bpsMonomial(point){
+  const factors = [];
+  [["x", point[0]], ["y", point[1]]].forEach(([name, power])=>{
+    if(power === 0) return;
+    factors.push(power === 1 ? name : `${name}^${power}`);
+  });
+  return factors.join(" ");
+}
+function bpsCurveString(source){
+  const raw = source.lattice_points && source.lattice_points.length ? source.lattice_points : (source.hull || source.points || []);
+  const pts = bpsPointArray(raw).sort((a,b)=>a[0]-b[0] || a[1]-b[1]);
+  const seen = new Set(), terms = [];
+  for(const p of pts){
+    const key = bpsPointKey(p);
+    if(seen.has(key)) continue;
+    seen.add(key);
+    const monomial = bpsMonomial(p);
+    terms.push(`c[${key}]${monomial ? " " + monomial : ""}`);
+  }
+  return terms.length ? `H(x,y) = ${terms.join(" + ")} = 0` : "-";
+}
+function renderBpsGeometry(source){
+  source = source || {};
+  bpsDrawToric(source);
+  $("bps-sw-curve").textContent = source.sw_curve || bpsCurveString(source);
+}
+
+function renderBpsStable(rows){
+  const el = $("bps-stable");
+  rows = rows || [];
+  if(!rows.length){ el.textContent = "No green mutations were recorded for this sequence."; return; }
+  let h = "<table class='log'><tr><th>#</th><th>step</th><th>node</th><th>dimension vector</th><th>charge</th><th>central charge</th></tr>";
+  for(const r of rows){
+    h += `<tr><td class="num">${r.index}</td><td class="num">${r.step}</td>`
+      + `<td class="num">${r.node}</td><td><code>${esc(bpsVec(r.dimension_vector))}</code></td>`
+      + `<td><code>${esc(r.charge || "")}</code></td><td>${esc(bpsCentral(r.central_charge))}</td></tr>`;
+  }
+  el.innerHTML = h + "</table>";
+}
+function renderBpsMutations(rows){
+  const el = $("bps-mutations");
+  rows = rows || [];
+  if(!rows.length){ el.textContent = "No mutation log returned."; return; }
+  let h = "<table class='log'><tr><th>step</th><th>node</th><th>status</th><th>c-vector</th><th>charge</th></tr>";
+  for(const r of rows){
+    const cls = r.status === "green" ? "chiral" : (r.status === "red" ? "geom" : "vector");
+    h += `<tr><td class="num">${r.step}</td><td class="num">${r.node}</td>`
+      + `<td>${bpsBadge(r.status || "unknown", cls)}</td>`
+      + `<td><code>${esc(bpsVec(r.c_vector))}</code></td>`
+      + `<td><code>${esc(r.charge || "")}</code></td></tr>`;
+  }
+  el.innerHTML = h + "</table>";
+}
+function renderBps(d){
+  const q = d.quiver || {}, chamber = d.chamber || {}, final = d.final || {}, source = d.source || {};
+  const B = q.exchange_matrix || [];
+  const A = q.adjacency || [];
+  const n = q.num_nodes || B.length || A.length || 0;
+  const stable = d.stable_objects || [];
+  $("bps-stable-count").textContent = chamber.stable_count ?? stable.length;
+  $("bps-summary").innerHTML = `${chamber.num_mutations ?? (chamber.mutation_sequence || []).length} mutations &nbsp;&middot;&nbsp; ${n} geometry-built nodes`;
+  $("bps-geom-out").textContent = source.geometry_label || "toric diagram";
+  $("bps-source-out").textContent = source.quiver_source || source.kind || "geometry";
+  $("bps-seq").textContent = (chamber.mutation_sequence || []).join(" ") || "-";
+  $("bps-green").innerHTML = bpsFlag(chamber.green_sequence, "green", "not green");
+  $("bps-max-green").innerHTML = bpsFlag(chamber.maximal_green, "maximal", "partial");
+  $("bps-phase-order").innerHTML = bpsFlag(chamber.phase_order_ok, "decreasing", "check phases");
+  $("bps-final-signs").textContent = (final.c_vector_signs || []).join(", ") || "-";
+  $("bps-nodes").textContent = n || "-";
+  $("bps-arrows").textContent = q.num_arrows ?? A.reduce((s,row)=>s+row.reduce((a,b)=>a+(Number(b)||0),0),0);
+
+  const sn = $("bps-source-note");
+  if(source.note){ sn.textContent = source.note; sn.classList.remove("hide"); }
+  else { sn.textContent = ""; sn.classList.add("hide"); }
+  const warn = chamber.warnings || [];
+  const ww = $("bps-warnings");
+  if(warn.length){ ww.innerHTML = warn.map(w => `<div>${esc(w)}</div>`).join(""); ww.classList.remove("hide"); }
+  else { ww.textContent = ""; ww.classList.add("hide"); }
+
+  renderBpsGeometry(source);
+  if(n) drawQuiver(A, q.dims || new Array(n).fill(1), "bps-quiver-svg", {clickable:true});
+  else $("bps-quiver-svg").innerHTML = "";
+  if(A.length) drawAdj(A, "bps-adjwrap"); else $("bps-adjwrap").textContent = "-";
+  if(B.length) drawAdj(B, "bps-exwrap"); else $("bps-exwrap").textContent = "-";
+  if(final.exchange_matrix && final.exchange_matrix.length){
+    $("bps-final-exchange").classList.remove("hide");
+    drawAdj(final.exchange_matrix, "bps-final-exwrap");
+  } else {
+    $("bps-final-exchange").classList.add("hide");
+    $("bps-final-exwrap").innerHTML = "";
+  }
+  renderBpsStable(stable);
+  renderBpsMutations(d.mutations || []);
+  $("bps-out").classList.remove("hide");
+}
+async function computeBps(){
+  _bpsComputed = true;
+  $("bps-err").classList.add("hide"); $("bps-out").classList.add("hide");
+  $("bps-loading").classList.remove("hide"); $("bps-go").disabled = true;
+  const p = new URLSearchParams();
+  p.set("source", "toric");
+  p.set("pts", bpsPointString());
+  p.set("sequence", $("bps-sequence").value);
+  if($("bps-phases").value.trim()) p.set("phases", $("bps-phases").value.trim());
+  if($("bps-masses").value.trim()) p.set("masses", $("bps-masses").value.trim());
+  try{
+    const r = await fetch("/api/bps_quiver?" + p.toString());
+    const d = await r.json();
+    $("bps-loading").classList.add("hide"); $("bps-go").disabled = false;
+    if(!r.ok || d.error){ $("bps-err").textContent = d.error || r.statusText; $("bps-err").classList.remove("hide"); return; }
+    renderBps(d);
+  }catch(e){
+    $("bps-loading").classList.add("hide"); $("bps-go").disabled = false;
+    $("bps-err").textContent = String(e); $("bps-err").classList.remove("hide");
+  }
+}
+function handleBpsQuiverClick(e){
+  const target = e.target.closest ? e.target.closest("[data-qnode]") : null;
+  if(!target || !$("bps-quiver-svg").contains(target)) return;
+  const node = target.dataset.qnode;
+  const current = $("bps-sequence").value.trim();
+  $("bps-sequence").value = current ? `${current} ${node}` : node;
+  computeBps();
+}
+$("bps-go").addEventListener("click", computeBps);
+$("bps-quiver-svg").addEventListener("click", handleBpsQuiverClick);
+$("bps-geometry").addEventListener("change", ()=> bpsSetGeometry($("bps-geometry").value, false));
+document.querySelectorAll("button.bps-geom").forEach(b=>{
+  b.addEventListener("click", ()=> bpsSetGeometry(b.dataset.geom || "dp0", true));
+});
+bpsSetGeometry("dp0", false);
 
 /* ===================== Toric (p,q)-web builder ===================== */
 const toricPts = new Set(["0,0","1,0","1,1","0,1"]);   // default: conifold
@@ -878,9 +1260,13 @@ async function buildToric(opts){
     activePts = d.resolution.fully_resolved ? null
       : new Set(d.resolution.lattice_points
           .filter((p,i)=>d.resolution.active_flags[i]).map(p=>gKey(p[0],p[1])));
-    // reflect it in the hash for deep-linking (like &phase=)
+    // reflect it in the hash for deep-linking (like &phase=).  pts= must track
+    // every diagram edit (dots, presets, blow-ups): a stale pts= with a live
+    // dualize= deep-links to a DIFFERENT diagram with this diagram's duality
+    // path -- a nonsense hybrid quiver on reload.
     const toks = location.hash.replace(/^#/,"").split("&")
-      .filter(t => t && !t.startsWith("active="));
+      .filter(t => t && !t.startsWith("active=") && !t.startsWith("pts="));
+    toks.unshift("pts=" + [...toricPts].join(";"));
     if(activePts) toks.push("active=" + [...activePts].join(";"));
     history.replaceState(null, "", "#" + toks.join("&"));
     renderGrid(d); renderWeb(d); renderResultGeometry(d);
@@ -1183,6 +1569,9 @@ function _quiverNodeClick(e){
 // duality state once the reconstruction arrives) and the inverse card below.
 $("iv-quiver").addEventListener("click", _quiverNodeClick);
 $("t-quiver").addEventListener("click", _quiverNodeClick);
+// square faces of the drawn dimer carry the same data-qnode: clicking a
+// glowing face is the urban-renewal move on that gauge node.
+$("iv-tiling").addEventListener("click", _quiverNodeClick);
 $("iv-dual-reset").addEventListener("click", ()=>{
   _dualPath = []; _dualStartPhase = 0;
   syncDualHash();
@@ -1227,6 +1616,22 @@ function drawTiling(t, svgId){
       const x1=w[0]+i, y1=w[1]+j, x2=b[0]-h[0]+i, y2=b[1]-h[1]+j;
       if(!inview(x1,y1) && !inview(x2,y2)) continue;
       s+=`<line x1="${X(x1).toFixed(1)}" y1="${Y(y1).toFixed(1)}" x2="${X(x2).toFixed(1)}" y2="${Y(y2).toFixed(1)}" stroke="#566a8f" stroke-width="1.3"/>`;
+    }
+  }
+  // gauge-face overlay: a faint node-id label on every face (the face <->
+  // quiver-node correspondence), and on SQUARE faces a glowing clickable
+  // polygon -- clicking it Seiberg-dualizes that node (urban renewal), via
+  // the same data-qnode path as clicking the quiver node itself.
+  for(let i=lo;i<=hi;i++) for(let j=lo;j<=hi;j++){
+    for(const f of (t.faces||[])){
+      let cx=0, cy=0;
+      for(const p of f.poly){ cx+=p[0]; cy+=p[1]; }
+      cx=cx/f.poly.length+i; cy=cy/f.poly.length+j;
+      if(!inview(cx,cy)) continue;
+      const pts=f.poly.map(p=>`${X(p[0]+i).toFixed(1)},${Y(p[1]+j).toFixed(1)}`).join(" ");
+      const dat=f.square ? ` data-qnode="${f.node}"` : "";
+      s+=`<g class="dface${f.square?" sq":""}"><polygon${dat} points="${pts}"/>`
+        +`<text x="${X(cx).toFixed(1)}" y="${Y(cy).toFixed(1)}">${f.node}</text></g>`;
     }
   }
   for(let i=lo;i<=hi;i++) for(let j=lo;j<=hi;j++){
@@ -1536,15 +1941,19 @@ $("bib-copy-latex").addEventListener("click", e=>{
 
 /* ---- tab switching ---- */
 function showTab(which){
-  const orb = which==="orb";
+  const tor = which === "tor", bps = which === "bps", orb = !tor && !bps;
   $("tab-orb").classList.toggle("on", orb);
-  $("tab-tor").classList.toggle("on", !orb);
+  $("tab-tor").classList.toggle("on", tor);
+  $("tab-bps").classList.toggle("on", bps);
   $("view-orbifold").classList.toggle("hide", !orb);
-  $("view-toric").classList.toggle("hide", orb);
-  if(!orb) buildToric();
+  $("view-toric").classList.toggle("hide", !tor);
+  $("view-bps").classList.toggle("hide", !bps);
+  if(tor) buildToric();
+  if(bps && !_bpsComputed) computeBps();
 }
 $("tab-orb").addEventListener("click", ()=>showTab("orb"));
 $("tab-tor").addEventListener("click", ()=>showTab("tor"));
+$("tab-bps").addEventListener("click", ()=>showTab("bps"));
 // deep-links may carry a trailing &phase=k (added when cycling phases); strip it.
 // A trailing &blow / &blowdown pre-enables blow-up / blow-down mode (for sharing).
 // &active=x,y;x,y restores a partial resolution (which divisors are blown up).
@@ -1579,6 +1988,7 @@ if(/&resdown\b/.test(_hashNoPhase)){
   _hashNoPhase = _hashNoPhase.replace(/&blow\b/,"");
   blowMode = "up"; $("blowmode").classList.add("on"); syncBlowHint();
 }
+if(_hashNoPhase === "#bps") showTab("bps");
 if(_hashNoPhase === "#toric") showTab("tor");    // deep-link to the builder
 if(_hashNoPhase.startsWith("#pts=")){            // deep-link to a specific diagram
   toricPts.clear(); currentTri=null;
