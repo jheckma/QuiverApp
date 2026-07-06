@@ -8,6 +8,8 @@ Endpoints
     GET /api/groups             {"groups": [...names...]}
     GET /api/compute?name=...   full pipeline summary as JSON
     GET /api/compute?name=__cyclic__&n=10&a=2&b=3&c=5
+    GET /api/bps_quiver?kind=matrix&quiver=...&sequence=...
+                                      BPS quiver finite-chamber spectrum
     GET /api/toric_web?pts=x0,y0;x1,y1;...   toric diagram -> (p,q) web + quiver
         optional &tri=a-b-c.d-e-f...  (current triangulation, index-triples)
         optional &flop=i,j            (flop this internal edge before rendering)
@@ -147,6 +149,30 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"error": f"internal error: {exc}"}, code=500)
             return
 
+        if path == "/api/bps_quiver":
+            q = parse_qs(parsed.query)
+            try:
+                if q.get("source", [""])[0] == "toric":
+                    pts = _parse_points(q.get("pts", [""])[0])
+                    self._json(api.summarize_bps_toric_quiver(
+                        pts,
+                        q.get("sequence", [""])[0],
+                        q.get("phases", [""])[0],
+                        q.get("masses", [""])[0],
+                    ))
+                else:
+                    self._json(api.summarize_bps_quiver(
+                        q.get("quiver", [""])[0],
+                        q.get("sequence", [""])[0],
+                        q.get("kind", ["matrix"])[0],
+                        q.get("phases", [""])[0],
+                        q.get("masses", [""])[0],
+                    ))
+            except (ValueError, KeyError) as exc:
+                self._json({"error": str(exc)}, code=400)
+            except Exception as exc:  # noqa: BLE001
+                self._json({"error": f"internal error: {exc}"}, code=500)
+            return
         if path == "/api/toric_web":
             q = parse_qs(parsed.query)
             try:

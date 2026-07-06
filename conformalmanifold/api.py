@@ -9,6 +9,7 @@ from .conformal import conformal_manifold_dim
 from .groups import MatrixGroup, cyclic, make_group
 from .quiver import build_quiver
 from .scft import orbifold_scft_json, toric_field_R_charges, toric_scft_json
+from .bps import bps_quiver_json, bps_quiver_from_adjacency_json
 from .inverse import (inverse_quiver_json, inverse_phases_json,
                       dualize_path_json)
 
@@ -100,6 +101,65 @@ def summarize_cyclic(n: int, a: int, b: int, c: int) -> dict:
 def summarize_freeform(expr: str) -> dict:
     from .freeform import build_from_expr
     return summarize(build_from_expr(expr))
+
+
+def summarize_bps_quiver(quiver: str, sequence: str, kind: str = "matrix",
+                         phases: str = "", masses: str = "") -> dict:
+    """Interpret a user-supplied quiver as a BPS quiver in a finite chamber."""
+    return bps_quiver_json(quiver, sequence, kind, phases, masses)
+
+
+def _newton_monomial(point) -> str:
+    x, y = (int(point[0]), int(point[1]))
+    factors = []
+    for name, power in (("x", x), ("y", y)):
+        if power == 0:
+            continue
+        factors.append(name if power == 1 else f"{name}^{power}")
+    return " ".join(factors)
+
+
+def _newton_curve_string(points) -> str:
+    pts = sorted({(int(p[0]), int(p[1])) for p in points})
+    terms = []
+    for p in pts:
+        coeff = f"c[{p[0]},{p[1]}]"
+        monomial = _newton_monomial(p)
+        terms.append(f"{coeff} {monomial}" if monomial else coeff)
+    return "H(x,y) = " + " + ".join(terms) + " = 0"
+
+
+def summarize_bps_toric_quiver(points, sequence: str, phases: str = "",
+                               masses: str = "") -> dict:
+    """Build the quiver from toric geometry, then analyze it as a BPS quiver."""
+    data = summarize_toric_web(points, include_inverse=True)
+    inv = data.get("inverse_quiver") or {}
+    if inv.get("available") and inv.get("adjacency"):
+        adjacency = inv["adjacency"]
+        qsource = "inverse brane tiling"
+        qnote = inv.get("note") or inv.get("reason") or ""
+    elif data.get("quiver") and data["quiver"].get("adjacency"):
+        adjacency = data["quiver"]["adjacency"]
+        qsource = "named geometry library"
+        qnote = data.get("identified", {}).get("note", "")
+    else:
+        reason = inv.get("reason") or data.get("identified", {}).get("note") or "no geometry-built quiver is available"
+        raise ValueError(f"no BPS quiver available for this geometry: {reason}")
+
+    identified = data.get("identified", {})
+    lattice_points = data.get("resolution", {}).get("lattice_points", [])
+    source = {
+        "kind": "toric_geometry",
+        "geometry_label": identified.get("label") or identified.get("family") or "toric diagram",
+        "quiver_source": qsource,
+        "points": data.get("diagram", {}).get("input_points", []),
+        "hull": data.get("diagram", {}).get("hull", []),
+        "lattice_points": lattice_points,
+        "sw_curve": _newton_curve_string(lattice_points or data.get("diagram", {}).get("hull", [])),
+        "note": qnote,
+    }
+    return bps_quiver_from_adjacency_json(adjacency, sequence, phases, masses,
+                                          label_base=0, source=source)
 
 
 # ===========================================================================
