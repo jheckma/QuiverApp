@@ -105,3 +105,77 @@ def test_bps_toric_geometry_reports_reciprocal_netting():
     assert out["quiver"]["adjacency"] == [[0, 2], [2, 0]]
     assert out["quiver"]["exchange_matrix"] == [[0, 0], [0, 0]]
     assert any("reciprocal arrows" in w for w in out["chamber"]["warnings"])
+
+
+# --- canonical orbifold chamber + invariants + spectral network (5d SCFTs) ---
+
+_FIVED = {
+    "dP0":  ([(1, 0), (0, 1), (-1, -1)], 3, 0),
+    "F0":   ([(-1, 0), (1, 0), (0, 1), (0, -1)], 4, 1),
+    "dP1":  ([(1, 0), (0, 1), (-1, -1), (0, -1)], 4, 1),
+    "dP2":  ([(1, 0), (0, 1), (-1, 0), (-1, -1), (0, -1)], 5, 2),
+    "dP3":  ([(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)], 6, 3),
+}
+
+
+@pytest.mark.parametrize("label", sorted(_FIVED))
+def test_orbifold_chamber_and_invariants(label):
+    """Every toric 5d SCFT must produce its canonical finite chamber -- the n
+    fractional branes as hypermultiplets (Closset-Del Zotto) -- with the
+    KK/D0 charge delta = (1,...,1) a null vector of the exchange matrix and the
+    correct E_n flavor rank.  An empty mutation sequence selects this chamber."""
+    verts, n_states, flavor = _FIVED[label]
+    out = api.summarize_bps_toric_quiver(verts, "")     # empty -> orbifold chamber
+    assert out["chamber"]["stable_count"] == n_states
+    assert out["chamber"]["kind"].startswith("orbifold")
+    assert len(out["stable_objects"]) == n_states
+    # charges are the standard basis, phases strictly decreasing
+    dims = [s["dimension_vector"] for s in out["stable_objects"]]
+    assert sorted(dims) == sorted([1 if i == j else 0 for j in range(n_states)]
+                                  for i in range(n_states))
+    ph = [s["central_charge"]["phase"] for s in out["stable_objects"]]
+    assert all(ph[i] >= ph[i + 1] for i in range(len(ph) - 1))
+    inv = out["invariants"]
+    assert inv["kk_charge"] == [1] * n_states
+    assert inv["kk_charge_is_null"] is True
+    assert inv["flavor_rank"] == flavor
+
+
+def test_local_p2_has_no_maximal_green_sequence():
+    """Local P^2 (the (3,3,3) Markov quiver) is mutation-infinite: no maximal
+    green sequence exists, so the orbifold 3-hyper chamber is THE canonical
+    finite chamber (Closset-Del Zotto)."""
+    from conformalmanifold.bps import find_maximal_green_sequence
+    B = [[0, 3, -3], [-3, 0, 3], [3, -3, 0]]
+    assert find_maximal_green_sequence(B) is None
+    out = api.summarize_bps_toric_quiver([(1, 0), (0, 1), (-1, -1)], "")
+    assert out["chamber"]["maximal_green_sequence"] is None
+    assert out["chamber"]["stable_count"] == 3
+
+
+def test_maximal_green_sequence_finder_a2():
+    from conformalmanifold.bps import find_maximal_green_sequence
+    assert find_maximal_green_sequence([[0, 1], [-1, 0]]) == [0, 1, 0]
+
+
+def test_spectral_network_description_from_dimer():
+    """The GMN spectral-network reading: genus = Coulomb rank, the asymptotic
+    (p,q) legs = the toric polygon edges = the dimer zig-zags."""
+    out = api.summarize_bps_toric_quiver([(1, 0), (0, 1), (-1, -1)], "")   # dP0
+    sn = out["spectral_network"]
+    assert sn["coulomb_rank"] == 1                 # local P^2 has rank 1
+    assert sn["num_asymptotic_legs"] == 3          # triangle: 3 legs
+    assert sn["flavor_rank"] == 0
+    assert "Gaiotto" in sn["framework"]
+    legs = {tuple(l["pq_leg"]) for l in sn["asymptotic_legs"]}
+    assert len(legs) == 3
+    # 5-brane charge conservation: sum of (length-weighted) (p,q) legs vanishes
+    def leg_sum(spec):
+        sx = sum(l["length"] * l["pq_leg"][0] for l in spec["asymptotic_legs"])
+        sy = sum(l["length"] * l["pq_leg"][1] for l in spec["asymptotic_legs"])
+        return (sx, sy)
+    assert leg_sum(sn) == (0, 0)
+    # F0 = P1xP1: 4 legs, rank 1, flavor 1, legs still balance
+    snf = api.summarize_bps_toric_quiver([(-1, 0), (1, 0), (0, 1), (0, -1)], "")["spectral_network"]
+    assert snf["num_asymptotic_legs"] == 4 and snf["coulomb_rank"] == 1
+    assert snf["flavor_rank"] == 1 and leg_sum(snf) == (0, 0)

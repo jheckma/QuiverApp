@@ -224,6 +224,7 @@
     <button class="tab on" id="tab-orb">Orbifold &nbsp;C&sup3;/&Gamma;</button>
     <button class="tab" id="tab-tor">Toric (p,q)-web builder</button>
     <button class="tab" id="tab-bps">BPS quivers</button>
+    <button class="tab" id="tab-ads6">AdS<sub>6</sub>/CFT<sub>5</sub></button>
   </div>
 
   <div id="view-orbifold">
@@ -528,17 +529,7 @@
       <div class="note hide" id="iv-note"></div>
     </div>
 
-    <div id="t-fived-card" class="card hide" style="margin-top:18px">
-      <h2>AdS<sub>6</sub> &nbsp;/&nbsp; CFT<sub>5</sub></h2>
-      <div class="kv"><span class="k">rank &nbsp;(Coulomb-branch dim = # interior pts)</span><span class="v" id="t-rank"></span></div>
-      <div class="kv"><span class="k">flavor-symmetry rank &nbsp;(= # mass parameters)</span><span class="v" id="t-flavor"></span></div>
-      <div class="kv"><span class="k">1-form symmetry &nbsp;(1-form part of the defect group)</span><span class="v" id="t-oneform"></span></div>
-      <div class="kv"><span class="k">defect group &nbsp;D = &Gamma;<sub>e</sub> &oplus; &Gamma;<sub>m</sub> &nbsp;(lines &oplus; surfaces)</span><span class="v" id="t-defect"></span></div>
-      <div class="kv"><span class="k">Dirac pairing &nbsp;(canonical generators)</span><span class="v" id="t-pairing"></span></div>
-      <div class="kv"><span class="k">global forms &nbsp;(# polarizations of D)</span><span class="v" id="t-globforms"></span></div>
-      <div class="kv"><span class="k">cubic anomaly &nbsp;(coeff. of &int;c<sub>2</sub><sup>3</sup> in the SymTFT)</span><span class="v" id="t-cubic"></span></div>
-      <div class="note hide" id="t-fived-note"></div>
-    </div>
+    <!-- AdS6/CFT5 moved to its own top-level tab (view-ads6) -->
 
     <div class="foot">a toric diagram (lattice polygon) &harr; its (p,q) web &harr; a quiver gauge theory
       &nbsp;&middot;&nbsp; dim<sub>&#8450;</sub> M = B &minus; 1 &nbsp;&middot;&nbsp; #gauge = 2&times;area</div>
@@ -555,11 +546,11 @@
       <div>
         <label for="bps-geometry">Geometry quiver</label>
         <select id="bps-geometry">
-          <option value="dp0" data-pts="1,0;0,1;-1,-1" data-sequence="0 1 2">dP0 = P2</option>
-          <option value="dp1" data-pts="1,0;0,1;-1,-1;0,-1" data-sequence="0 1 2 3">dP1</option>
-          <option value="f0" data-pts="-1,0;1,0;0,1;0,-1" data-sequence="0 1 2 3">F0 = P1 x P1</option>
-          <option value="c3" data-pts="0,0;1,0;0,1" data-sequence="0">C3</option>
-          <option value="conifold" data-pts="0,0;1,0;1,1;0,1" data-sequence="0 1">conifold</option>
+          <option value="dp0" data-pts="1,0;0,1;-1,-1" data-sequence="">dP0 = P2</option>
+          <option value="dp1" data-pts="1,0;0,1;-1,-1;0,-1" data-sequence="">dP1</option>
+          <option value="f0" data-pts="-1,0;1,0;0,1;0,-1" data-sequence="">F0 = P1 x P1</option>
+          <option value="c3" data-pts="0,0;1,0;0,1" data-sequence="">C3</option>
+          <option value="conifold" data-pts="0,0;1,0;1,1;0,1" data-sequence="">conifold</option>
           <option value="current">Current toric tab diagram</option>
           <option value="custom">Custom point list</option>
         </select>
@@ -582,8 +573,8 @@
       </div>
       <div class="field-wide">
         <label for="bps-sequence">Chamber mutation sequence</label>
-        <textarea id="bps-sequence" rows="2" spellcheck="false">0 1 2</textarea>
-        <div class="help">Geometry quiver nodes are labeled 0, 1, 2, ... as in the toric quiver drawings.</div>
+        <textarea id="bps-sequence" rows="2" spellcheck="false"></textarea>
+        <div class="help">Leave empty for the <em>canonical orbifold chamber</em> (the <em>n</em> fractional branes as hypermultiplets). Click quiver nodes below to append mutations and explore other chambers. Nodes are labeled 0, 1, 2, &hellip; as in the toric quiver drawings.</div>
       </div>
       <div class="field-wide">
         <label for="bps-phases">Optional phases</label>
@@ -664,6 +655,25 @@
 
       <div class="grid" style="margin-top:18px">
         <div class="card">
+          <h2>BPS charge invariants</h2>
+          <div class="kv"><span class="k">canonical chamber</span><span class="v" id="bps-canon"></span></div>
+          <div class="kv"><span class="k">KK / D0 charge &delta;</span><span class="v" id="bps-kk"></span></div>
+          <div class="kv"><span class="k">flavor rank</span><span class="v" id="bps-flavor"></span></div>
+          <div class="kv"><span class="k">maximal green sequence</span><span class="v" id="bps-mgs"></span></div>
+          <div class="help" style="margin-top:6px">&delta; = (1,&hellip;,1) is the D0-brane / KK-momentum charge, the mutation-invariant null vector of B; the remaining kernel is the flavor U(1)s. The canonical finite chamber is the <em>n</em> fractional branes as hypermultiplets (Closset&ndash;Del Zotto).</div>
+        </div>
+        <div class="card">
+          <h2>Spectral network (Gaiotto&ndash;Moore&ndash;Neitzke)</h2>
+          <div class="kv"><span class="k">SW / mirror curve</span><span class="v">&Sigma;: H(x,y)=0</span></div>
+          <div class="kv"><span class="k">sheets &times; genus</span><span class="v" id="bps-sn-sheets"></span></div>
+          <div class="kv"><span class="k">Coulomb rank</span><span class="v" id="bps-sn-rank"></span></div>
+          <div class="kv"><span class="k">asymptotic (p,q) legs</span><span class="v" id="bps-sn-legs"></span></div>
+          <div class="help" id="bps-sn-note" style="margin-top:6px"></div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:18px">
+        <div class="card">
           <h2>Stable objects</h2>
           <div id="bps-stable" class="tablewrap"></div>
         </div>
@@ -676,6 +686,78 @@
 
     <div class="foot">geometry quiver -> BPS exchange matrix -> chamber c-vectors</div>
   </div><!-- /view-bps -->
+
+  <div id="view-ads6" class="hide">
+    <div class="sub" style="margin:14px 0 10px">
+      Click lattice points to build your own <b>toric diagram</b> &mdash; exactly as on the
+      (p,q)-web builder tab. Its 5d SCFT invariants, the dual <b>(p,q) 5-brane web</b>, and the
+      Type IIB <b>D'Hoker&ndash;Gutperle&ndash;Uhlemann</b> gravity dual all recompute live.
+    </div>
+    <div class="exrow" style="margin:0 0 10px">
+      presets:
+      <button type="button" class="a6preset" data-pts="0,0;1,0;0,1">C&sup3;</button>
+      <button type="button" class="a6preset" data-pts="0,0;1,0;1,1;0,1">conifold</button>
+      <button type="button" class="a6preset" data-pts="1,0;0,1;-1,-1">dP0 = P&sup2; (E&#8320;)</button>
+      <button type="button" class="a6preset" data-pts="1,0;0,1;-1,-1;0,-1">dP1</button>
+      <button type="button" class="a6preset" data-pts="1,0;0,1;-1,0;-1,-1;0,-1">dP2</button>
+      <button type="button" class="a6preset" data-pts="1,0;0,1;-1,1;-1,0;0,-1;1,-1">dP3</button>
+      <button type="button" class="a6preset" data-pts="-1,0;1,0;0,1;0,-1">F0 = P&sup1;&times;P&sup1;</button>
+      <button type="button" class="a6preset" data-pts="0,0;3,0;0,3">T&#8323;</button>
+      <button type="button" class="a6preset" data-pts="">clear</button>
+    </div>
+    <div class="exrow" style="margin:0 0 4px;align-items:center;gap:6px">
+      <span class="help" style="margin:0"><b>resolve cone:</b></span>
+      <button type="button" id="a6-resupmode" class="preset">&oplus; divisor</button>
+      <button type="button" id="a6-resdownmode" class="preset">&ominus; divisor</button>
+      <span class="help" style="margin:0 0 0 10px"><b>base surface:</b></span>
+      <button type="button" id="a6-blowmode" class="preset">&oplus; P&sup1;</button>
+      <button type="button" id="a6-blowdownmode" class="preset">&ominus; &minus;1-curve</button>
+      <span class="help" style="margin:0 0 0 10px">click a highlighted internal edge to <b>flop</b></span>
+    </div>
+    <div class="exrow" style="margin:0 0 10px"><span class="help" id="a6-blowhint" style="margin:0"></span></div>
+    <div id="a6-loading" class="note hide">computing&hellip;</div>
+    <div id="a6-err" class="note hide" style="color:var(--warn)"></div>
+
+    <div class="grid" style="grid-template-columns:1fr 1fr 1fr; gap:16px; align-items:start">
+      <!-- COLUMN 1 : interactive toric-diagram builder + resolution + 5d SCFT data -->
+      <div class="card">
+        <h2>Toric diagram <span class="badge geom" id="a6-geom-label" style="font-weight:500"></span></h2>
+        <svg id="a6-grid" class="grid" viewBox="0 0 420 420" style="width:100%;height:auto"></svg>
+        <div class="help" id="a6-ptsline" style="margin:2px 0 8px"></div>
+        <div class="kv"><span class="k">Coulomb rank <span style="color:var(--muted)">(# interior pts)</span></span><span class="v" id="a6-rank2"></span></div>
+        <div class="kv"><span class="k">flavor rank <span style="color:var(--muted)">(# masses)</span></span><span class="v" id="a6-flavor"></span></div>
+        <div class="kv"><span class="k">1-form symmetry</span><span class="v" id="a6-oneform"></span></div>
+        <div class="kv"><span class="k">defect group D = &Gamma;<sub>e</sub>&oplus;&Gamma;<sub>m</sub></span><span class="v" id="a6-defect"></span></div>
+        <div class="kv"><span class="k">Dirac pairing</span><span class="v" id="a6-pairing"></span></div>
+        <div class="kv"><span class="k">global forms</span><span class="v" id="a6-globforms"></span></div>
+        <div class="kv"><span class="k">cubic anomaly <span style="color:var(--muted)">(&int;c<sub>2</sub><sup>3</sup>)</span></span><span class="v" id="a6-cubic"></span></div>
+        <div class="note hide" id="a6-note" style="font-size:11px"></div>
+      </div>
+
+      <!-- COLUMN 2 : (p,q) 5-brane web + external-leg data -->
+      <div class="card">
+        <h2>(p,q) 5-brane web</h2>
+        <svg id="a6-web-svg" viewBox="0 0 420 420" style="width:100%;height:auto"></svg>
+        <div class="kv"><span class="k">external 5-brane stacks <span style="color:var(--muted)">(= poles L)</span></span><span class="v" id="a6-stacks"></span></div>
+        <div class="kv"><span class="k">charge conservation</span><span class="v" id="a6-charge"></span></div>
+        <div id="a6-poles" class="tablewrap" style="margin-top:6px"></div>
+        <div class="help" style="margin-top:6px;font-size:11px">External legs = outward normals of the polygon edges (Aharony&ndash;Hanany&ndash;Kol); charge (p,q) &times; (# 5-branes). These become the DGU boundary poles.</div>
+      </div>
+
+      <!-- COLUMN 3 : the disk Sigma + D'Hoker-Gutperle-Uhlemann gravity dual -->
+      <div class="card">
+        <h2>AdS<sub>6</sub>&times;S&sup2; over &Sigma; <span class="badge geom" style="font-weight:500">DGU</span></h2>
+        <svg id="a6-sigma-svg" viewBox="0 0 300 220" style="width:100%;height:auto"></svg>
+        <div id="a6-ansatz" class="note" style="color:var(--ink);font-family:ui-monospace,Consolas,monospace;font-size:11px;margin:4px 0"></div>
+        <div class="kv"><span class="k">Riemann surface &Sigma;</span><span class="v" id="a6-sigma"></span></div>
+        <div class="kv"><span class="k">S&#8309; free energy</span><span class="v" id="a6-free"></span></div>
+        <div class="help" style="margin:6px 0 2px;font-size:11px">holomorphic functions on &Sigma;</div>
+        <div id="a6-holo" class="note" style="color:var(--ink);font-family:ui-monospace,Consolas,monospace;font-size:10.5px;word-break:break-word"></div>
+        <div class="note" id="a6-free-note" style="margin-top:4px;font-size:10.5px"></div>
+      </div>
+    </div>
+    <div class="foot">toric diagram &rarr; (p,q) web external legs &rarr; D'Hoker&ndash;Gutperle&ndash;Uhlemann poles on &part;&Sigma;</div>
+  </div><!-- /view-ads6 -->
 </main>
 
 <script>
@@ -761,7 +843,11 @@ function drawQuiver(adj, dims, svgId){
   const opts = arguments[3] || {};
   const labels = opts.labels || null;
   const toricSet = new Set(opts.toric || []);
-  const ranks = opts.ranks || null;
+  // ranks (units of N) per node: prefer an explicit ranks array (Seiberg-dual
+  // state), else the gauge-group dims (all 1 = N for a seed).  Shown under EVERY
+  // node so the gauge group SU(rN) is always visible; unequal ranks are warm.
+  const ranks = opts.ranks || dims || null;
+  const showRanks = opts.showRanks !== false;   // on by default; opt out with false
   for(let i=0;i<n;i++){
     const [x,y]=pos[i], big = dims[i]>1;
     const cls = "node" + (big?" big":"") + (toricSet.has(i)?" sq":"")
@@ -770,9 +856,11 @@ function drawQuiver(adj, dims, svgId){
     const label = labels ? labels[i] : i;
     s+=`<g class="${cls}"><circle${dat} cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}"/>
         <text${dat} x="${x.toFixed(1)}" y="${y.toFixed(1)}">${label}</text></g>`;
-    if(ranks && ranks[i] !== 1)
-      s+=`<text x="${x.toFixed(1)}" y="${(y+r+11).toFixed(1)}" fill="var(--warn)" font-size="10.5"
-           font-weight="700" text-anchor="middle" dominant-baseline="central">${ranks[i]}N</text>`;
+    if(showRanks && ranks){
+      const rk = ranks[i], warm = rk !== 1;
+      s+=`<text x="${x.toFixed(1)}" y="${(y+r+11).toFixed(1)}" fill="${warm?'var(--warn)':'#8b96a8'}" font-size="10.5"
+           font-weight="${warm?700:600}" text-anchor="middle" dominant-baseline="central">${rk}N</text>`;
+    }
   }
   for(const t of lbl)
     s+=`<text x="${t.x.toFixed(1)}" y="${t.y.toFixed(1)}" fill="#9fb2e0" font-size="10.5"
@@ -927,7 +1015,9 @@ function bpsSetGeometry(value, run){
     if(typeof toricPts !== "undefined") $("bps-pts").value = [...toricPts].join(";");
   } else if(opt && opt.dataset.pts){
     $("bps-pts").value = opt.dataset.pts;
-    $("bps-sequence").value = opt.dataset.sequence || $("bps-sequence").value;
+    // respect an explicit empty sequence (canonical orbifold chamber);
+    // only keep the current value when the option carries no data-sequence
+    if(opt.dataset.sequence !== undefined) $("bps-sequence").value = opt.dataset.sequence;
   }
   if(run) computeBps();
 }
@@ -1070,6 +1160,33 @@ function renderBps(d){
   if(warn.length){ ww.innerHTML = warn.map(w => `<div>${esc(w)}</div>`).join(""); ww.classList.remove("hide"); }
   else { ww.textContent = ""; ww.classList.add("hide"); }
 
+  // BPS charge invariants (KK/D0 delta, flavor rank) + canonical chamber
+  const inv = d.invariants || {};
+  const canon = d.canonical_chamber || {};
+  $("bps-canon").textContent = canon.num_states != null
+    ? `${canon.num_states} hypermultiplets (orbifold / fractional-brane chamber)` : "—";
+  $("bps-kk").innerHTML = inv.kk_charge
+    ? `<code>(${inv.kk_charge.join(",")})</code>` + (inv.kk_charge_is_null ? "" : " <span style='color:var(--warn)'>(not null — degenerate B)</span>")
+    : "—";
+  $("bps-flavor").textContent = (inv.flavor_rank != null) ? inv.flavor_rank : "—";
+  const mgs = chamber.maximal_green_sequence;
+  $("bps-mgs").innerHTML = mgs
+    ? `<code>${mgs.join(" ")}</code>`
+    : "<span style='color:var(--muted)'>none (mutation-infinite quiver — the orbifold chamber is the canonical finite one)</span>";
+  // spectral network (Gaiotto-Moore-Neitzke)
+  const snet = d.spectral_network || {};
+  if(snet && !snet.error){
+    $("bps-sn-sheets").textContent = `${snet.sheets ?? "—"} sheets · genus ${snet.genus ?? "—"}`;
+    $("bps-sn-rank").textContent = (snet.coulomb_rank != null) ? snet.coulomb_rank : "—";
+    const legs = (snet.asymptotic_legs || []).map(l=>`(${l.pq_leg.join(",")})`).join(" ");
+    $("bps-sn-legs").innerHTML = `<code>${legs}</code>`;
+    $("bps-sn-note").innerHTML = "The dimer zig-zag paths are the network's asymptotic (p,q) legs; the Kasteleyn determinant of the tiling is the SW curve H(x,y). BPS states = finite spectral networks (string webs) on &Sigma;; wall-crossing = quiver mutation. <span style='color:var(--muted)'>arXiv:1204.4824</span>";
+  } else {
+    $("bps-sn-sheets").textContent = $("bps-sn-rank").textContent = "—";
+    $("bps-sn-legs").textContent = "—";
+    $("bps-sn-note").textContent = (snet && snet.error) ? snet.error : "";
+  }
+
   renderBpsGeometry(source);
   if(n) drawQuiver(A, q.dims || new Array(n).fill(1), "bps-quiver-svg", {clickable:true});
   else $("bps-quiver-svg").innerHTML = "";
@@ -1180,6 +1297,20 @@ function tEmpty(msg){
   $("t-empty").classList.remove("hide"); $("t-body").classList.add("hide");
   $("t-quivercard").classList.add("hide");
   $("grid").innerHTML = emptyGrid(); $("t-web").innerHTML = "";
+  // keep the AdS6 tab's builder live too (mirror the interactive empty grid)
+  if($("a6-grid")){
+    $("a6-grid").innerHTML = $("grid").innerHTML;
+    const ph = t => `<text x="50%" y="50%" text-anchor="middle" fill="#8b96a8" font-size="12">${t}</text>`;
+    if($("a6-web-svg")) $("a6-web-svg").innerHTML = ph("need ≥ 3 non-collinear points");
+    if($("a6-sigma-svg")) $("a6-sigma-svg").innerHTML = ph("");
+    for(const k of ["a6-rank2","a6-flavor","a6-oneform","a6-defect","a6-pairing",
+        "a6-globforms","a6-cubic","a6-stacks","a6-charge","a6-sigma","a6-free"])
+      if($(k)) $(k).textContent = "—";
+    if($("a6-poles")) $("a6-poles").innerHTML = "";
+    if($("a6-holo")) $("a6-holo").textContent = "";
+    if($("a6-ptsline")) $("a6-ptsline").textContent =
+        toricPts.size ? "points: " + [...toricPts].join("  ") : "";
+  }
 }
 
 function baseGrid(){               // faint lattice + axes over the current window
@@ -1265,7 +1396,10 @@ async function buildToric(opts){
     // dualize= deep-links to a DIFFERENT diagram with this diagram's duality
     // path -- a nonsense hybrid quiver on reload.
     const toks = location.hash.replace(/^#/,"").split("&")
-      .filter(t => t && !t.startsWith("active=") && !t.startsWith("pts="));
+      .filter(t => t && !t.startsWith("active=") && !t.startsWith("pts=")
+                     && !t.startsWith("phase="));   // stale phase= from a prior
+                                                     // diagram must not bleed in
+                                                     // and select a wrong phase
     toks.unshift("pts=" + [...toricPts].join(";"));
     if(activePts) toks.push("active=" + [...activePts].join(";"));
     history.replaceState(null, "", "#" + toks.join("&"));
@@ -1448,36 +1582,9 @@ function renderResultGeometry(d){
   const note = id.note || "";
   if(note){ $("t-note").textContent=note; $("t-note").classList.remove("hide"); }
   else $("t-note").classList.add("hide");
-
-  // AdS6/CFT5 reading of the same diagram (guarded: a stale/older backend may omit it)
-  const f=d.fived;
-  if(f){
-    $("t-fived-card").classList.remove("hide");
-    $("t-rank").textContent = f.rank;
-    $("t-flavor").textContent = f.flavor_rank ?? "—";
-    $("t-oneform").innerHTML = prettyAbelian(f.one_form_factors);
-    const dg=f.defect_group;
-    if(dg){
-      $("t-defect").innerHTML = dg.factors && dg.factors.length
-        ? prettyAbelian(dg.factors)+" ⊕ "+prettyAbelian(dg.factors) : "trivial";
-      $("t-pairing").textContent = (dg.pairing && dg.pairing.length) ? dg.pairing.join(", ")
-        : (dg.isolated ? "—" : "n/a (non-isolated)");
-      $("t-globforms").textContent = dg.num_global_forms ?? (dg.isolated ? "—" : "n/a (non-isolated)");
-    } else {
-      $("t-defect").textContent = "—"; $("t-pairing").textContent = "—"; $("t-globforms").textContent = "—";
-    }
-    const cu=f.cubic;
-    if(cu && cu.status==="computed"){
-      $("t-cubic").textContent = cu.coefficient + (cu.family ? `   (${cu.family})` : "");
-    } else {
-      $("t-cubic").textContent = cu ? cu.note : "—";
-    }
-    const fnote = [f.note, dg && dg.note].filter(Boolean).join("  ");
-    if(fnote){ $("t-fived-note").textContent=fnote; $("t-fived-note").classList.remove("hide"); }
-    else $("t-fived-note").classList.add("hide");
-  } else {
-    $("t-fived-card").classList.add("hide");
-  }
+  // AdS6/CFT5 (5d SCFT invariants + DGU gravity dual) now lives on its own tab;
+  // mirror the diagram + web there and render its columns from d.fived.
+  if(typeof syncAds6 === "function") syncAds6(d);
 
   renderToricScft(d.scft);            // central charges + corner R (field_R fills in later)
 
@@ -1489,8 +1596,14 @@ function renderResultGeometry(d){
     $("t-qarrows").textContent=q.num_arrows;
     $("t-qW").textContent=q.num_w_terms;
     $("t-qls").textContent=q.dim_conf_ls;
-    drawQuiver(q.adjacency, q.dims, "t-quiver");
-    drawAdj(q.adjacency, "t-adjwrap");
+    // While a Seiberg-duality path is active, leave the top quiver showing the
+    // last DUALIZED drawing (syncTopQuiver keeps it current); redrawing the
+    // plain library seed here would make it flicker back to the undualized
+    // theory on every click until the async reconstruction returns.
+    if(!_dualPath.length){
+      drawQuiver(q.adjacency, q.dims, "t-quiver");
+      drawAdj(q.adjacency, "t-adjwrap");
+    }
   } else {
     $("t-quivercard").classList.add("hide");
   }
@@ -1503,11 +1616,18 @@ function renderResultInverse(d){
   const iv = d.inverse_quiver;
   if(_dualPath.length){
     // an interactive urban-renewal path is active: display ITS tiling (the
-    // response's inverse_quiver); if a move failed, show the error + reset.
+    // response's inverse_quiver).  If the LAST move failed (e.g. the node has
+    // an adjoint, or its dual rank would be <= 0 -- both legitimately refused
+    // by the backend), drop that move and RE-RENDER the last valid state, so
+    // the card never gets stuck on an error out of sync with a still-valid
+    // path.  The popped prefix previously succeeded, so buildToric() cannot
+    // re-fail (no loop).
     if(!iv || !iv.available){
+      const msg = (iv && iv.error) || "that Seiberg duality move is not defined here";
       _dualPath.pop();                // drop the failing move, keep the rest
-      renderInverse(iv);
       syncDualHash();
+      flashBlowHint("Seiberg move refused: " + msg);
+      buildToric();                   // re-render the last VALID state
       return;
     }
     _ivPhases = [iv];
@@ -1557,7 +1677,10 @@ function renderDualize(iv){
   }
 }
 function _quiverNodeClick(e){
-  const t=e.target;
+  // resolve the nearest ancestor carrying data-qnode (like handleBpsQuiverClick),
+  // so a click landing on a child <text>/<circle> or an overlapping vertex dot
+  // still recovers the intended node instead of being silently dropped.
+  const t = (e.target.closest && e.target.closest("[data-qnode]")) || e.target;
   if(t.dataset && t.dataset.qnode!==undefined){     // Seiberg-dualize this node
     if(!_dualPath.length) _dualStartPhase = _ivPhaseIdx;   // dualize from here
     _dualPath.push(parseInt(t.dataset.qnode,10));
@@ -1627,7 +1750,12 @@ function drawTiling(t, svgId){
       let cx=0, cy=0;
       for(const p of f.poly){ cx+=p[0]; cy+=p[1]; }
       cx=cx/f.poly.length+i; cy=cy/f.poly.length+j;
-      if(!inview(cx,cy)) continue;
+      // draw the face (and its clickable overlay) if ANY vertex is in view --
+      // consistent with the edge rule above.  Using only the centroid dropped
+      // the clickable overlay for square cells straddling the window edge whose
+      // edges were still drawn, leaving a visible-but-dead click target.
+      const vis = inview(cx,cy) || f.poly.some(p=>inview(p[0]+i,p[1]+j));
+      if(!vis) continue;
       const pts=f.poly.map(p=>`${X(p[0]+i).toFixed(1)},${Y(p[1]+j).toFixed(1)}`).join(" ");
       const dat=f.square ? ` data-qnode="${f.node}"` : "";
       s+=`<g class="dface${f.square?" sq":""}"><polygon${dat} points="${pts}"/>`
@@ -1635,8 +1763,8 @@ function drawTiling(t, svgId){
     }
   }
   for(let i=lo;i<=hi;i++) for(let j=lo;j<=hi;j++){
-    for(const p of wg){ const x=p[0]+i, y=p[1]+j; if(inview(x,y)) s+=`<circle cx="${X(x).toFixed(1)}" cy="${Y(y).toFixed(1)}" r="4" fill="#e6edf3" stroke="#0b1020"/>`; }
-    for(const p of bg){ const x=p[0]+i, y=p[1]+j; if(inview(x,y)) s+=`<circle cx="${X(x).toFixed(1)}" cy="${Y(y).toFixed(1)}" r="4" fill="#1c2230" stroke="#9aa7b6"/>`; }
+    for(const p of wg){ const x=p[0]+i, y=p[1]+j; if(inview(x,y)) s+=`<circle cx="${X(x).toFixed(1)}" cy="${Y(y).toFixed(1)}" r="4" fill="#e6edf3" stroke="#0b1020" pointer-events="none"/>`; }
+    for(const p of bg){ const x=p[0]+i, y=p[1]+j; if(inview(x,y)) s+=`<circle cx="${X(x).toFixed(1)}" cy="${Y(y).toFixed(1)}" r="4" fill="#1c2230" stroke="#9aa7b6" pointer-events="none"/>`; }
   }
   $(svgId).innerHTML = s;
 }
@@ -1795,7 +1923,10 @@ function renderToricScft(s){
   else $("ts-note").classList.add("hide");
 }
 
-$("grid").addEventListener("click", e=>{
+// Shared by the toric tab's #grid AND the AdS6 tab's #a6-grid (both are live
+// views of the same toric diagram + resolution): flops, the four blow-up/down
+// modes, and adding/removing diagram points all run the same machinery.
+function toricGridClick(e){
   const t=e.target;
   if(t.dataset && t.dataset.resolve!==undefined){         // blow up a divisor of the cone
     if(activePts) activePts.add(t.dataset.resolve);       // (null can't occur: no
@@ -1828,33 +1959,38 @@ $("grid").addEventListener("click", e=>{
     _dualPath = []; _dualStartPhase = 0; syncDualHash();  // duality path is stale
     buildToric();                                         // polygon changed -> default phase
   }
-});
+}
+$("grid").addEventListener("click", toricGridClick);
+$("a6-grid").addEventListener("click", toricGridClick);
 
 // blow-up / blow-down mode toggles + a transient hint when a site is rejected
 let _blowHintTimer = null;
 function flashBlowHint(msg){
-  const h=$("blowhint");
-  h.textContent = msg;
-  h.style.color = "var(--warn)";
+  for(const id of ["blowhint","a6-blowhint"]){
+    const h=$(id); if(!h) continue; h.textContent = msg; h.style.color = "var(--warn)";
+  }
   if(_blowHintTimer) clearTimeout(_blowHintTimer);
   _blowHintTimer = setTimeout(syncBlowHint, 2600);
 }
 function syncBlowHint(){
-  const h=$("blowhint");
-  h.style.color = "";
-  h.textContent =
+  const txt =
     blowMode === "resup"   ? "RESOLVE — click ⊕ on a dimmed lattice point to blow up that exceptional divisor of the singular cone (diagram fixed; red cells = residual orbifold singularities shrink away)."
   : blowMode === "resdown" ? "UN-RESOLVE — click ⊖ on a lattice point to blow that exceptional divisor back down (toward the singular cone; cells merge and tint red)."
   : blowMode === "up"      ? "NEW P¹ — click ⊕ outside the diagram to blow up a point of the BASE SURFACE (adds a new exceptional P¹ / external leg; dP0→dP1; needs a cone over a surface = exactly one interior lattice point)."
   : blowMode === "down"    ? "CONTRACT P¹ — click ⊖ on a corner to blow down a −1-curve of the base surface (dP1→dP0; minimal surfaces like P², P¹×P¹ have none)."
   : "off — pick one of the four modes above, then click a glowing handle.  The two rows are DIFFERENT blow-ups: resolving the singular cone vs adding a new P¹ to the base surface.";
+  for(const id of ["blowhint","a6-blowhint"]){
+    const h=$(id); if(!h) continue; h.style.color=""; h.textContent=txt;
+  }
 }
 function setBlowMode(m){              // mutually-exclusive toggle of the 4 modes
   blowMode = (blowMode === m) ? "" : m;
-  $("resupmode").classList.toggle("on", blowMode === "resup");
-  $("resdownmode").classList.toggle("on", blowMode === "resdown");
-  $("blowmode").classList.toggle("on", blowMode === "up");
-  $("blowdownmode").classList.toggle("on", blowMode === "down");
+  for(const [id,mode] of [["resupmode","resup"],["resdownmode","resdown"],
+                          ["blowmode","up"],["blowdownmode","down"],
+                          ["a6-resupmode","resup"],["a6-resdownmode","resdown"],
+                          ["a6-blowmode","up"],["a6-blowdownmode","down"]]){
+    const b=$(id); if(b) b.classList.toggle("on", blowMode===mode);
+  }
   syncBlowHint();
   buildToric();                       // re-render to show/hide the handles
 }
@@ -1862,6 +1998,11 @@ $("resupmode").addEventListener("click", ()=> setBlowMode("resup"));
 $("resdownmode").addEventListener("click", ()=> setBlowMode("resdown"));
 $("blowmode").addEventListener("click", ()=> setBlowMode("up"));
 $("blowdownmode").addEventListener("click", ()=> setBlowMode("down"));
+// the AdS6 tab's mirror blow-mode buttons drive the SAME shared machinery
+$("a6-resupmode").addEventListener("click", ()=> setBlowMode("resup"));
+$("a6-resdownmode").addEventListener("click", ()=> setBlowMode("resdown"));
+$("a6-blowmode").addEventListener("click", ()=> setBlowMode("up"));
+$("a6-blowdownmode").addEventListener("click", ()=> setBlowMode("down"));
 // only the diagram presets carry data-pts; the blow-up toggle shares .preset
 // styling but must NOT clear the diagram, so scope the handler by [data-pts].
 document.querySelectorAll("button.preset[data-pts]").forEach(b=>{
@@ -1939,21 +2080,196 @@ $("bib-copy-latex").addEventListener("click", e=>{
   if(_bibData) copyText(_bibData.latex_all, e.target);
 });
 
+/* ===================== AdS6/CFT5 : 5d SCFT + gravity dual ===================== */
+let _ads6Computed = false;
+// self-contained interactive toric-diagram builder for the AdS6 tab (its own
+// point set + view, independent of the toric tab's `toricPts`).
+let a6Pts = new Set(["1,0","0,1","-1,-1"]);       // default: dP0
+let a6View = {lo:[-3,-3], hi:[3,3]}, a6TM = {sc:1, ox:0, oy:0};
+let _a6Seq = 0, _a6Abort = null;
+function a6SyncView(){
+  const ps=[...a6Pts].map(s=>s.split(",").map(Number));
+  if(ps.length){
+    const M=1;
+    let mnx=Math.min(...ps.map(p=>p[0])), mxx=Math.max(...ps.map(p=>p[0]));
+    let mny=Math.min(...ps.map(p=>p[1])), mxy=Math.max(...ps.map(p=>p[1]));
+    a6View={lo:[Math.floor(mnx-M),Math.floor(mny-M)], hi:[Math.ceil(mxx+M),Math.ceil(mxy+M)]};
+  } else a6View={lo:[-3,-3], hi:[3,3]};
+  const W=420,H=420,pad=26;
+  const spanx=a6View.hi[0]-a6View.lo[0]||1, spany=a6View.hi[1]-a6View.lo[1]||1;
+  const sc=Math.min((W-2*pad)/spanx,(H-2*pad)/spany);
+  a6TM={sc, ox:(W-spanx*sc)/2, oy:(H-spany*sc)/2};
+}
+const a6sx = gx => a6TM.ox + (gx-a6View.lo[0])*a6TM.sc;
+const a6sy = gy => 420 - (a6TM.oy + (gy-a6View.lo[1])*a6TM.sc);
+function a6DrawGrid(){
+  a6SyncView();
+  let s="";
+  for(let gy=a6View.lo[1]; gy<=a6View.hi[1]; gy++)
+    s+=`<line class="${gy===0?'gridaxis':'gridline'}" x1="${a6sx(a6View.lo[0])}" y1="${a6sy(gy)}" x2="${a6sx(a6View.hi[0])}" y2="${a6sy(gy)}"/>`;
+  for(let gx=a6View.lo[0]; gx<=a6View.hi[0]; gx++)
+    s+=`<line class="${gx===0?'gridaxis':'gridline'}" x1="${a6sx(gx)}" y1="${a6sy(a6View.lo[1])}" x2="${a6sx(gx)}" y2="${a6sy(a6View.hi[1])}"/>`;
+  // filled hull if >=3 non-collinear
+  const hull = jsHull([...a6Pts]);
+  if(hull.length>=3)
+    s+=`<polygon class="toricfill" points="${hull.map(p=>`${a6sx(p[0])},${a6sy(p[1])}`).join(" ")}"/>`;
+  // clickable lattice dots
+  for(let gx=a6View.lo[0]; gx<=a6View.hi[0]; gx++) for(let gy=a6View.lo[1]; gy<=a6View.hi[1]; gy++){
+    const sel = a6Pts.has(gKey(gx,gy));
+    s+=`<circle class="gridpt${sel?' sel':''}" data-gx="${gx}" data-gy="${gy}" cx="${a6sx(gx)}" cy="${a6sy(gy)}" r="${sel?6:3.6}"/>`;
+  }
+  $("a6-grid").innerHTML = s;
+  $("a6-ptsline").textContent = a6Pts.size ? "points: " + [...a6Pts].join("  ") : "";
+}
+// AdS6 presets set THE shared toric diagram (like the toric-tab presets).
+document.querySelectorAll("button.a6preset").forEach(b=>{
+  b.addEventListener("click", ()=>{
+    toricPts.clear(); currentTri=null; activePts=null;
+    _dualPath=[]; _dualStartPhase=0; if(typeof syncDualHash==="function") syncDualHash();
+    for(const p of (b.dataset.pts||"").split(";")) if(p) toricPts.add(p.trim());
+    buildToric();
+  });
+});
+// building the AdS6 tab = building the shared toric diagram; syncAds6() (called
+// from renderResultGeometry) then fills the three columns.
+function computeAds6(){ _ads6Computed = true; buildToric(); }
+// mirror the toric diagram (#grid) + (p,q) web (#t-web) into the AdS6 columns,
+// and render the 5d SCFT + gravity-dual data from the toric response's `fived`.
+function syncAds6(d){
+  if($("a6-grid")) $("a6-grid").innerHTML = $("grid").innerHTML;
+  if($("a6-web-svg")) $("a6-web-svg").innerHTML = $("t-web").innerHTML;
+  if($("a6-ptsline")) $("a6-ptsline").textContent =
+      toricPts.size ? "points: " + [...toricPts].join("  ") : "";
+  if(d && d.fived)
+    renderAds6({...d.fived, identified: d.identified, resolution: d.resolution});
+}
+function renderAds6(d){
+  const g = d.gravity_dual || {};
+  const id = d.identified || {};
+  $("a6-geom-label").textContent = id.matched ? `${id.label} — ${id.description||""}`
+    : (id.family || "toric diagram");
+  // 5d SCFT data
+  $("a6-rank2").textContent = d.rank ?? "—";
+  $("a6-flavor").textContent = d.flavor_rank ?? "—";
+  $("a6-oneform").innerHTML = prettyAbelian(d.one_form_factors);
+  const dg = d.defect_group;
+  if(dg){
+    $("a6-defect").innerHTML = dg.factors && dg.factors.length
+      ? prettyAbelian(dg.factors)+" ⊕ "+prettyAbelian(dg.factors) : "trivial";
+    $("a6-pairing").textContent = (dg.pairing && dg.pairing.length) ? dg.pairing.join(", ")
+      : (dg.isolated ? "—" : "n/a (non-isolated)");
+    $("a6-globforms").textContent = dg.num_global_forms ?? (dg.isolated ? "—" : "n/a (non-isolated)");
+  } else { $("a6-defect").textContent = $("a6-pairing").textContent = $("a6-globforms").textContent = "—"; }
+  const cu = d.cubic;
+  $("a6-cubic").textContent = (cu && cu.status==="computed")
+    ? cu.coefficient + (cu.family ? `   (${cu.family})` : "") : (cu ? cu.note : "—");
+  const note = [d.note, dg && dg.note].filter(Boolean).join("  ");
+  if(note){ $("a6-note").textContent = note; $("a6-note").classList.remove("hide"); }
+  else $("a6-note").classList.add("hide");
+  // gravity dual
+  $("a6-ansatz").textContent = g.ansatz || "—";
+  const rs = g.riemann_surface || {};
+  $("a6-sigma").textContent = rs.type ? `${rs.type}, genus ${rs.genus}, ${rs.num_punctures} punctures` : "—";
+  $("a6-stacks").textContent = g.num_external_stacks ?? "—";
+  const cc = g.charge_conservation || {};
+  $("a6-charge").innerHTML = cc.conserved
+    ? `<span style="color:var(--ok,#5fd08a)">&#10003; &Sigma;(p,q) = (0,0)</span>`
+    : `<span style="color:var(--warn)">&#10007; &Sigma;(p,q) = (${(cc.sum_pq||[]).join(",")})</span>`;
+  $("a6-holo").textContent = g.holomorphic_functions || "—";
+  const fe = g.free_energy || {};
+  $("a6-free").innerHTML = (fe.value != null)
+    ? `<code>F<sub>S&#8309;</sub> = ${fe.value}</code>` + (fe.exact ? " (exact, 3-leg)" : " (leading &zeta;(3) piece)")
+    : "—";
+  $("a6-free-note").innerHTML = [fe.formula ? `<code>${esc(fe.formula)}</code>` : "",
+                                 fe.scaling || "", fe.note || ""].filter(Boolean).join("<br>");
+  // external-leg / pole table (compact for the column)
+  const poles = g.five_brane_poles || [];
+  let h = `<table class="mat"><tr><th>&#8467;</th><th>(p,q)</th><th># br</th></tr>`;
+  for(const p of poles){
+    h += `<tr><td class="num">${p.index}</td><td><code>(${p.pq.join(",")})</code></td>`
+      + `<td class="num">${p.num_branes}</td></tr>`;
+  }
+  $("a6-poles").innerHTML = h + "</table>";
+  drawSigmaDisk(poles);
+  // the (p,q) web is mirrored from #t-web in syncAds6 (keeps flops consistent)
+}
+// (kept for reference; the web is mirrored from the toric tab instead)
+function drawAds6Web(d){
+  const web = d && d.resolution && d.resolution.web;
+  if(!web || !web.junctions){ $("a6-web-svg").innerHTML =
+      `<text x="210" y="210" text-anchor="middle" fill="#8b96a8" font-size="13">web unavailable</text>`; return; }
+  const J=web.junctions, legLen=1.25;
+  const B=[...J];
+  for(const leg of web.external_legs){
+    const j=J[leg.junction], [p,q]=leg.pq, L=Math.hypot(p,q)||1;
+    B.push([j[0]+p/L*legLen, j[1]+q/L*legLen]);
+  }
+  let minx=Math.min(...B.map(p=>p[0])), maxx=Math.max(...B.map(p=>p[0]));
+  let miny=Math.min(...B.map(p=>p[1])), maxy=Math.max(...B.map(p=>p[1]));
+  const pad=0.7; minx-=pad;maxx+=pad;miny-=pad;maxy+=pad;
+  const W=420,Hh=420, sc=Math.min(W/(maxx-minx||1), Hh/(maxy-miny||1))*0.92;
+  const ox=(W-(maxx-minx)*sc)/2, oy=(Hh-(maxy-miny)*sc)/2;
+  const X=x=> ox+(x-minx)*sc, Y=y=> Hh-(oy+(y-miny)*sc);
+  let s="";
+  for(const e of web.internal_edges){
+    const [a,b]=e.tris;
+    s+=`<line class="wedge" x1="${X(J[a][0])}" y1="${Y(J[a][1])}" x2="${X(J[b][0])}" y2="${Y(J[b][1])}"/>`;
+    if(e.pq){
+      const mx=(J[a][0]+J[b][0])/2, my=(J[a][1]+J[b][1])/2;
+      const m=(e.mult||1)>1?`×${e.mult}`:"";
+      s+=`<text class="wedgelabel" x="${X(mx)}" y="${Y(my)}" text-anchor="middle" dominant-baseline="central">(${e.pq[0]},${e.pq[1]})${m}</text>`;
+    }
+  }
+  for(const leg of web.external_legs){
+    const j=J[leg.junction], [p,q]=leg.pq, L=Math.hypot(p,q)||1;
+    const ex=j[0]+p/L*legLen, ey=j[1]+q/L*legLen;
+    s+=`<line class="wleg" x1="${X(j[0])}" y1="${Y(j[1])}" x2="${X(ex)}" y2="${Y(ey)}"/>`;
+    s+=`<circle class="wlegdot" cx="${X(ex)}" cy="${Y(ey)}" r="2.6"/>`;
+    const lx=j[0]+p/L*(legLen+0.45), ly=j[1]+q/L*(legLen+0.45);
+    const m=(leg.mult||1)>1?`×${leg.mult}`:"";
+    s+=`<text class="wleglabel" x="${X(lx)}" y="${Y(ly)}" text-anchor="middle" dominant-baseline="central">(${p},${q})${m}</text>`;
+  }
+  for(const j of J) s+=`<circle class="wjunc" cx="${X(j[0])}" cy="${Y(j[1])}" r="4.2"/>`;
+  $("a6-web-svg").setAttribute("viewBox", `0 0 ${W} ${Hh}`);
+  $("a6-web-svg").innerHTML = s;
+}
+function drawSigmaDisk(poles){
+  const W=300,H=220,cx=150,cy=110,R=78;
+  let s = `<circle cx="${cx}" cy="${cy}" r="${R}" fill="rgba(90,120,180,.08)" stroke="#566a8f" stroke-width="1.4"/>`
+        + `<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="central" fill="#8b96a8" font-size="12">&Sigma; (disk)</text>`;
+  const n = poles.length || 1;
+  for(let i=0;i<poles.length;i++){
+    const a = -Math.PI/2 + 2*Math.PI*i/n;
+    const x = cx+R*Math.cos(a), y = cy+R*Math.sin(a);
+    const lx = cx+(R+20)*Math.cos(a), ly = cy+(R+20)*Math.sin(a);
+    s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4.5" fill="var(--warn)"/>`
+       + `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="middle" dominant-baseline="central" fill="#c9d4e3" font-size="10.5">(${poles[i].pq.join(",")})</text>`;
+  }
+  $("a6-sigma-svg").setAttribute("viewBox", `0 0 ${W} ${H}`);
+  $("a6-sigma-svg").innerHTML = s;
+}
+// (the AdS6 grid + preset click handlers are wired above; no button/select)
+
 /* ---- tab switching ---- */
 function showTab(which){
-  const tor = which === "tor", bps = which === "bps", orb = !tor && !bps;
+  const tor = which === "tor", bps = which === "bps", ads6 = which === "ads6";
+  const orb = !tor && !bps && !ads6;
   $("tab-orb").classList.toggle("on", orb);
   $("tab-tor").classList.toggle("on", tor);
   $("tab-bps").classList.toggle("on", bps);
+  $("tab-ads6").classList.toggle("on", ads6);
   $("view-orbifold").classList.toggle("hide", !orb);
   $("view-toric").classList.toggle("hide", !tor);
   $("view-bps").classList.toggle("hide", !bps);
+  $("view-ads6").classList.toggle("hide", !ads6);
   if(tor) buildToric();
   if(bps && !_bpsComputed) computeBps();
+  if(ads6 && !_ads6Computed) computeAds6();
 }
 $("tab-orb").addEventListener("click", ()=>showTab("orb"));
 $("tab-tor").addEventListener("click", ()=>showTab("tor"));
 $("tab-bps").addEventListener("click", ()=>showTab("bps"));
+$("tab-ads6").addEventListener("click", ()=>showTab("ads6"));
 // deep-links may carry a trailing &phase=k (added when cycling phases); strip it.
 // A trailing &blow / &blowdown pre-enables blow-up / blow-down mode (for sharing).
 // &active=x,y;x,y restores a partial resolution (which divisors are blown up).

@@ -154,6 +154,17 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"error": f"internal error: {exc}"}, code=500)
             return
 
+        if path == "/api/ads6":
+            q = parse_qs(parsed.query)
+            try:
+                pts = _parse_points(q.get("pts", [""])[0])
+                self._json(api.summarize_ads6(pts))
+            except (ValueError, KeyError) as exc:
+                self._json({"error": str(exc)}, code=400)
+            except Exception as exc:  # noqa: BLE001
+                self._json({"error": f"internal error: {exc}"}, code=500)
+            return
+
         if path == "/api/bps_quiver":
             q = parse_qs(parsed.query)
             try:

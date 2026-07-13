@@ -188,6 +188,49 @@ def test_api_exposes_fived_block():
     assert dg["num_global_forms"] == 4
 
 
+def test_gravity_dual_poles_and_charge_conservation():
+    """The D'Hoker-Gutperle-Uhlemann dual: L external 5-brane poles = polygon
+    edges; each carries (p,q) = edge outward normal x lattice length; the web
+    charges must sum to zero (the polygon closes)."""
+    for pts, L in [([(1, 0), (0, 1), (-1, -1)], 3),                    # dP0
+                   ([(-1, 0), (1, 0), (0, 1), (0, -1)], 4),            # F0
+                   ([(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)], 6)]:  # dP3
+        g = F.gravity_dual(T.convex_hull(pts))
+        assert g["num_external_stacks"] == L
+        assert len(g["five_brane_poles"]) == L
+        assert g["charge_conservation"]["conserved"] is True
+        assert g["charge_conservation"]["sum_pq"] == [0, 0]
+        assert g["riemann_surface"]["genus"] == 0
+
+
+def test_gravity_dual_free_energy_matches_TN():
+    """F_{S^5} = -(9/8) zeta(3)/pi^2 * sum_{l<k}(p_l q_k - p_k q_l)^2, exact for
+    a 3-leg web.  T_N (triangle, N branes per leg) must reproduce the published
+    F = -27 zeta(3)/(8 pi^2) N^4 (Fluder-Uhlemann arXiv:1806.08374)."""
+    import math
+    z3 = 1.2020569031595942
+    for N in (1, 2, 3):
+        # T_N toric triangle (N,0),(0,N),(0,0): 3 legs, N branes each
+        g = F.gravity_dual(T.convex_hull([(0, 0), (N, 0), (0, N)]))
+        fe = g["free_energy"]
+        assert fe["exact"] is True                    # 3-leg -> no tri-log term
+        assert fe["wedge_sum_S"] == 3 * N ** 4
+        expected = -27 * z3 / (8 * math.pi ** 2) * N ** 4
+        assert abs(fe["value"] - round(expected, 6)) < 1e-6
+
+
+def test_summarize_ads6_entry_point():
+    d = api.summarize_ads6([(1, 0), (0, 1), (-1, -1)])                 # dP0 = E0
+    assert d["available"] and d["rank"] == 1 and d["flavor_rank"] == 0
+    assert d["one_form_label"] == "Z_3"
+    g = d["gravity_dual"]
+    assert g["family"].startswith("D'Hoker")
+    assert g["num_external_stacks"] == 3
+    assert g["free_energy"]["exact"] is True
+    # a degenerate 1d input is refused
+    assert api.summarize_ads6([(0, 0), (1, 0)])["available"] is False
+
+
 def test_non_isolated_note():
     # C^2/Z_4 x C: bottom edge has lattice length 4 -> non-isolated, note set
     out = api.summarize_toric_web([(0, 0), (4, 0), (0, 1)])

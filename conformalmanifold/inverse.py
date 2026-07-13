@@ -1674,10 +1674,19 @@ def quiver_seiberg(A, ranks, k):
     """General quiver-level Seiberg duality on node k (ranks in units of N):
     N_c -> N_f - N_c, all flavors at k reversed, mesons A[i][k]*A[k][j] added
     between its neighbours, massive vector-like pairs integrated out.  Returns
-    (A', ranks').  Raises ValueError if the dual rank would be < 1."""
+    (A', ranks').  Raises ValueError if the dual rank would be < 1, or if node
+    k carries an adjoint (self-loop): ordinary SU(N) Seiberg duality is not
+    defined for a gauge node with adjoint matter (that is a Kutasov-type
+    duality), and the naive meson/mass rule would otherwise emit a nonsensical
+    quiver with negative arrow multiplicities."""
     n = len(A)
-    nf = sum(A[i][k] * ranks[i] for i in range(n))
-    nf_out = sum(A[k][j] * ranks[j] for j in range(n))
+    if A[k][k] != 0:
+        raise ValueError(
+            f"node {k} has an adjoint (self-loop, multiplicity {A[k][k]}); "
+            "ordinary Seiberg duality is undefined for a node with adjoint "
+            "matter (this would be a Kutasov-type duality)")
+    nf = sum(A[i][k] * ranks[i] for i in range(n) if i != k)
+    nf_out = sum(A[k][j] * ranks[j] for j in range(n) if j != k)
     if nf != nf_out:
         raise ValueError(f"node {k} is anomalous (N_f in {nf} != out {nf_out})")
     rk = nf - ranks[k]
@@ -1688,15 +1697,30 @@ def quiver_seiberg(A, ranks, k):
     B = [row[:] for row in A]
     for j in range(n):
         B[k][j], B[j][k] = A[j][k], A[k][j]          # reverse flavors at k
+    # mesons M[ij] = A[i][k]*A[k][j] between k's neighbours (i,j != k).  Keep the
+    # diagonal i==j: M[ii] is a genuine ADJOINT of node i when k has an arrow both
+    # from and to i -- dropping it (an old `i != j` clause) under-counted fields.
+    mes = [[0] * n for _ in range(n)]
     for i in range(n):
         for j in range(n):
-            if i != k and j != k and i != j:
-                B[i][j] += A[i][k] * A[k][j]         # mesons
+            if i != k and j != k:
+                mes[i][j] = A[i][k] * A[k][j]
+                B[i][j] += mes[i][j]
+    # integrate out mass terms: ONLY a NEW meson can be massive, and only against
+    # an OPPOSITE existing arrow (this is what the superpotential Delta-term pairs
+    # up).  The old blanket min over every pair wrongly cancelled pre-existing
+    # vector-like bifundamentals that have no mass term (e.g. spectator conifold
+    # pairs, the C^3/(Z2xZ2) dual).  Never touch the diagonal (an adjoint is not
+    # integrated out here, and the blanket loop turned M[ii] into -M[ii]).
+    # DWZ (`wmutation.mutate`) remains authoritative when W is tracked; this is
+    # the safer adjacency-only fallback for when it is not.
     for i in range(n):
         for j in range(n):
-            m = min(B[i][j], B[j][i])                # integrate out massive
-            B[i][j] -= m                             # vector-like pairs
-            B[j][i] -= m
+            if i == j:
+                continue
+            c = min(mes[i][j], B[j][i])
+            B[i][j] -= c
+            B[j][i] -= c
     ranks2 = list(ranks)
     ranks2[k] = rk
     return B, ranks2

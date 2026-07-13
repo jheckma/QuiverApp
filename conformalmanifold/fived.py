@@ -139,6 +139,153 @@ def abelian_label(factors: list[int]) -> str:
     return " x ".join(f"Z_{d}" for d in factors)
 
 
+def _prim_len(vx, vy):
+    """(primitive vector, lattice length) of an integer vector."""
+    g = gcd(abs(int(vx)), abs(int(vy)))
+    if g == 0:
+        return (0, 0), 0
+    return (vx // g, vy // g), g
+
+
+def gravity_dual(hull) -> dict:
+    """The Type IIB supergravity dual of the 5d SCFT engineered by this toric
+    diagram's (p,q) 5-brane web, in the **D'Hoker-Gutperle-Uhlemann** family:
+    a warped
+
+        ds^2 = f_6^2 ds^2_{AdS_6} + f_2^2 ds^2_{S^2} + 4 rho^2 |dz|^2
+
+    over a Riemann surface Sigma (a disk / upper-half-plane, genus 0), with the
+    entire solution fixed by two locally holomorphic functions
+
+        A_+-(z) = A_+-^0 + sum_{l=1}^L  Z_+-^l  ln(z - r_l),   r_l in dSigma,
+
+    whose logarithmic branch points r_l on the boundary are the external
+    5-brane stacks of the web.  The residues Z_+-^l encode the (p_l, q_l)
+    charges of the l-th external leg.
+
+    Dictionary to the toric diagram (this is the exact, computable part):
+    the external legs of the (p,q) web are the OUTWARD primitive normals of the
+    toric polygon's edges; an edge of lattice length n_l is a stack of n_l
+    (p_l, q_l) 5-branes, so the l-th DGU puncture carries total charge
+    (p_l, q_l) = n_l * (outward primitive normal).  5-brane charge conservation
+    sum_l (p_l, q_l) = 0 is automatic because the polygon closes.
+
+    Refs: D'Hoker-Gutperle-Uhlemann arXiv:1611.09411, 1703.08186, 1706.00433;
+    free energy: Fluder-Uhlemann arXiv:1806.08374, Kaidi-Uhlemann.
+
+    Returns a descriptive dict (the ansatz, Sigma data, the external-leg pole
+    table with charges, the holomorphic-function form, charge-conservation
+    check, and the free-energy reading); NOT a full supergravity solver."""
+    from .toric import convex_hull
+
+    hull = convex_hull([(int(x), int(y)) for (x, y) in hull])
+    V = len(hull)
+    poles = []
+    sx = sy = 0
+    for i in range(V):
+        (ax, ay), (bx, by) = hull[i], hull[(i + 1) % V]
+        # CCW hull -> outward normal is the RIGHT normal (e_y, -e_x)
+        prim, n = _prim_len(by - ay, -(bx - ax))
+        p, q = prim[0] * n, prim[1] * n
+        sx += p
+        sy += q
+        poles.append({
+            "index": i + 1,
+            "pq": [p, q],                    # total charge of the stack
+            "brane_type": list(prim),        # the primitive (p,q) 5-brane
+            "num_branes": n,                 # # 5-branes in the stack = edge length
+            "edge": [list(hull[i]), list(hull[(i + 1) % V])],
+            "position": f"r_{i + 1} on dSigma",
+            # residue dictionary (Fluder-Uhlemann arXiv:2011.00006):
+            #   Z_+-^l = (3/4) alpha' (+- q_l + i p_l)
+            "residue": f"Z_pm^{i+1} = (3/4)a'(±{q} + i·{p})",
+        })
+    L = V
+    charge_conserved = (sx, sy) == (0, 0)
+    # holomorphic functions, with residues shown as the (p,q) charges
+    a_terms = " + ".join(f"Z_pm^{p['index']} ln(z - r_{p['index']})" for p in poles)
+    return {
+        "family": "D'Hoker-Gutperle-Uhlemann warped AdS_6 x S^2 (Type IIB)",
+        "ansatz": "ds^2 = f_6^2 ds^2_{AdS_6} + f_2^2 ds^2_{S^2} + 4 rho^2 |dz|^2",
+        "riemann_surface": {
+            "type": "disk (upper half-plane)",
+            "genus": 0,
+            "num_punctures": L,
+            "boundary": "the L external 5-brane stacks sit at r_1..r_L on dSigma",
+        },
+        "num_external_stacks": L,
+        "five_brane_poles": poles,
+        "holomorphic_functions": f"A_pm(z) = A_pm^0 + {a_terms}",
+        "residue_dictionary": ("Z_pm^l fixes the l-th external leg's (p_l,q_l); "
+                               "(p_l,q_l) = (edge lattice length) x (outward "
+                               "primitive normal of the polygon edge)"),
+        "charge_conservation": {
+            "sum_pq": [sx, sy],
+            "conserved": charge_conserved,
+            "note": "sum_l (p_l,q_l)=0 (the polygon closes) -- required for a web",
+        },
+        "free_energy": _ads6_free_energy(hull, poles),
+        "refs": ["arXiv:1611.09411", "arXiv:1703.08186", "arXiv:1706.00433",
+                 "arXiv:1806.08374"],
+    }
+
+
+def _ads6_free_energy(hull, poles) -> dict:
+    """The holographic S^5 free energy of the DGU dual, computed from the
+    external-leg charges (Fluder-Uhlemann arXiv:1806.08374, 2011.00006).
+
+    The general result is a double sum over the L poles,
+
+        F_{S^5} = 64 pi^2 / (9 (2 pi a')^4) [ zeta(3) sum_{l,k} (Z^[lk])^2
+                                              - (tri-log term over 4 distinct poles) ],
+
+    Z^[lk] = Z_+^l Z_-^k - Z_+^k Z_-^l = -(9 i/8) a'^2 (p_l q_k - p_k q_l).
+    The charge-only (zeta(3)) piece evaluates in closed form to
+
+        F_{S^5} = -(9/8) zeta(3)/pi^2 * S,   S = sum_{l<k} (p_l q_k - p_k q_l)^2,
+
+    which is EXACT for a 3-leg web (no 4-distinct-pole tri-log term) and the
+    leading piece otherwise (the tri-log term depends on the boundary moduli
+    r_l, fixed only by the global regularity analysis).  Verified: T_N (legs
+    (N,0),(0,N),(-N,-N)) gives S = 3N^4 -> F = -27 zeta(3)/(8 pi^2) N^4, the
+    published value.  Quartic in the charges: a web scaled by N scales as N^4
+    (NOT N^{5/2}; that scaling is the massive-IIA Brandhuber-Oz dual, a
+    different construction)."""
+    from math import pi
+    try:
+        from math import zeta                      # py3.12+: not in math
+    except ImportError:
+        zeta3 = 1.2020569031595942
+    else:                                           # pragma: no cover
+        zeta3 = zeta(3)
+    zeta3 = 1.2020569031595942
+    L = len(poles)
+    pq = [p["pq"] for p in poles]
+    S = 0
+    for a in range(L):
+        for b in range(a + 1, L):
+            det = pq[a][0] * pq[b][1] - pq[a][1] * pq[b][0]
+            S += det * det
+    coeff = -9 * zeta3 / (8 * pi ** 2)              # F = coeff * S  (units a'^0)
+    F = coeff * S
+    exact = (L == 3)
+    return {
+        "quantity": "F_{S^5}  (= -log Z_{S^5}, in units where 2 pi a' = 1)",
+        "formula": "F_{S^5} = -(9/8) zeta(3)/pi^2 * sum_{l<k}(p_l q_k - p_k q_l)^2"
+                   + ("" if exact else "  + tri-log(r_l) term (4-pole)"),
+        "wedge_sum_S": S,                           # SL(2,Z)-invariant charge sum
+        "value": round(F, 6),
+        "exact": exact,                             # exact for 3-leg webs
+        "scaling": "quartic in the 5-brane charges (a uniformly-N web ~ N^4; "
+                   "e.g. T_N: F = -27 zeta(3)/(8 pi^2) N^4)",
+        "note": ("" if exact else
+                 "L>=4: the shown value is the charge-only zeta(3) piece; the "
+                 "full F has an additional single-valued-trilog term depending "
+                 "on the boundary pole positions r_l (regularity moduli)"),
+        "refs": ["arXiv:1806.08374", "arXiv:2011.00006"],
+    }
+
+
 # ----------------------------------------------------------------------------
 # integer linear algebra (pure stdlib): Smith normal form with transforms
 # ----------------------------------------------------------------------------

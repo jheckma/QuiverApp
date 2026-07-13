@@ -129,9 +129,50 @@ def _newton_curve_string(points) -> str:
     return "H(x,y) = " + " + ".join(terms) + " = 0"
 
 
+def summarize_ads6(points) -> dict:
+    """5d SCFT invariants + their Type IIB (D'Hoker-Gutperle-Uhlemann) gravity
+    dual for the AdS6/CFT5 tab.  Reuses `summarize_toric_web` (cheap,
+    include_inverse=False) so the panel also carries the actual (p,q) 5-brane
+    web (junctions / internal edges / external legs) to draw, alongside the
+    rank/flavor/1-form/defect/cubic data and the gravity-dual solution."""
+    try:
+        data = summarize_toric_web(points, include_inverse=False)
+    except ValueError as exc:
+        return {"available": False, "error": str(exc)}
+    f = data.get("fived", {})
+    res = data.get("resolution", {})
+    return {
+        "available": True,
+        "diagram": data.get("diagram"),
+        "identified": data.get("identified", {}),
+        # the (p,q) 5-brane web for this diagram (drawn on the AdS6 tab too)
+        "resolution": {"web": res.get("web"),
+                       "triangulation": res.get("triangulation"),
+                       "lattice_points": res.get("lattice_points")},
+        "web": data.get("web"),
+        "rank": f.get("rank"),
+        "flavor_rank": f.get("flavor_rank"),
+        "one_form_factors": f.get("one_form_factors"),
+        "one_form_label": f.get("one_form_label"),
+        "note": f.get("note"),
+        "defect_group": f.get("defect_group"),
+        "cubic": f.get("cubic"),
+        "gravity_dual": f.get("gravity_dual"),
+        "sw_curve": _newton_curve_string(
+            res.get("lattice_points") or data.get("diagram", {}).get("hull", [])),
+    }
+
+
 def summarize_bps_toric_quiver(points, sequence: str, phases: str = "",
                                masses: str = "") -> dict:
-    """Build the quiver from toric geometry, then analyze it as a BPS quiver."""
+    """Build the quiver from toric geometry, then analyze it as a BPS quiver.
+
+    When no mutation `sequence` is supplied, a canonical finite chamber is
+    chosen automatically: the curated Closset-Del Zotto chamber for a named 5d
+    SCFT if one is known (`fived_bps.catalog_chamber`), else a maximal green
+    sequence found by search.  When no `phases`/`masses` are given but a
+    sequence is available, default central charges are filled in so the tab
+    shows a valid decreasing-phase chamber."""
     data = summarize_toric_web(points, include_inverse=True)
     inv = data.get("inverse_quiver") or {}
     if inv.get("available") and inv.get("adjacency"):
@@ -158,8 +199,19 @@ def summarize_bps_toric_quiver(points, sequence: str, phases: str = "",
         "sw_curve": _newton_curve_string(lattice_points or data.get("diagram", {}).get("hull", [])),
         "note": qnote,
     }
-    return bps_quiver_from_adjacency_json(adjacency, sequence, phases, masses,
-                                          label_base=0, source=source)
+    out = bps_quiver_from_adjacency_json(adjacency, sequence, phases, masses,
+                                         label_base=0, source=source)
+    # Gaiotto-Moore-Neitzke spectral-network reading of the same geometry: the
+    # SW/mirror curve is the Newton polynomial, the dimer zig-zags are the
+    # network's asymptotic (p,q) legs.
+    from .bps import spectral_network_description
+    newton = lattice_points or data.get("diagram", {}).get("hull", [])
+    try:
+        out["spectral_network"] = spectral_network_description(
+            newton, num_nodes=out["quiver"]["num_nodes"])
+    except Exception as exc:                       # never break BPS on this extra
+        out["spectral_network"] = {"error": str(exc)}
+    return out
 
 
 # ===========================================================================
@@ -322,6 +374,8 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None,
         "defect_group": F.defect_group(hull),
         # cubic 't Hooft anomaly of the 1-form symmetry (published closed forms)
         "cubic": F.cubic_anomaly(hull),
+        # Type IIB (D'Hoker-Gutperle-Uhlemann) gravity dual from the (p,q) web
+        "gravity_dual": F.gravity_dual(hull),
     }
 
     # Inverse algorithm: reconstruct a quiver + brane tiling from the diagram

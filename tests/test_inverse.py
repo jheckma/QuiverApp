@@ -553,6 +553,90 @@ def test_superpotential_tracked_through_general_seiberg():
     assert all(t["coeff"] in ("1", "-1") for t in d["superpotential_w"])
 
 
+def test_quiver_seiberg_refuses_adjoint_node():
+    """Ordinary Seiberg duality is undefined on a gauge node carrying an
+    adjoint (self-loop) -- that is a Kutasov-type duality.  quiver_seiberg must
+    REFUSE (ValueError) rather than run its meson/mass arithmetic on the loop,
+    which used to emit a nonsensical quiver with negative arrow multiplicities.
+    L^{1,3,1} has a seed adjoint at node 2; deeper cascades of other geometries
+    create adjoints that must likewise be refused, not corrupted."""
+    # a bare 2x2 quiver with an adjoint at node 0
+    A = [[1, 2], [2, 0]]
+    with pytest.raises(ValueError, match="adjoint"):
+        quiver_seiberg(A, [1, 1], 0)
+    # node 1 (no adjoint) is fine
+    quiver_seiberg(A, [1, 1], 1)
+
+    # L131 seed literally has an adjoint at node 2; clicking it is refused
+    L131 = [(0, 0), (1, 0), (2, 1), (0, 1)]
+    assert inverse_quiver_json(L131)["adjacency"][2][2] == 1
+    bad = dualize_path_json(L131, [2])
+    assert bad["available"] is False and "adjoint" in bad["error"]
+
+
+def test_quiver_seiberg_meson_mass_rule_matches_dwz():
+    """The adjacency-only fallback `quiver_seiberg` must (a) NOT cancel
+    pre-existing vector-like pairs that got no meson / have no mass term,
+    (b) never negate a spectator adjoint, (c) keep adjoint mesons M_ii, and
+    (d) reproduce the DWZ result on a vector-like + adjoint quiver.  (Before the
+    fix the blanket min-subtraction over every pair gave the EMPTY C^3/(Z2xZ2)
+    dual and negative multiplicities.)"""
+    # (a) a distant spectator conifold pair (nodes 3<->4) must survive dualizing 2
+    A = [[0, 0, 3, 0, 0], [0, 0, 0, 0, 0], [0, 3, 0, 0, 0],
+         [0, 0, 0, 0, 1], [0, 0, 0, 1, 0]]
+    B, _ = quiver_seiberg(A, [1] * 5, 2)
+    assert B[3][4] == 1 and B[4][3] == 1
+    # (b) a spectator adjoint at node 1 stays non-negative
+    B2, _ = quiver_seiberg([[0, 0, 2], [0, 1, 0], [2, 0, 0]], [1, 1, 1], 0)
+    assert all(B2[i][j] >= 0 for i in range(3) for j in range(3))
+    # (c) adjoint meson M_00 created when node 1 connects both ways to node 0
+    B3, _ = quiver_seiberg([[0, 2, 2], [2, 0, 0], [2, 0, 0]], [1, 1, 1], 1)
+    assert B3[0][0] == 4
+    # (d) C^3/(Z2xZ2) node 0 == the DWZ dual (not the empty quiver)
+    Z = inverse_quiver_json([(0, 0), (2, 0), (0, 2)])["adjacency"]
+    Bz, _ = quiver_seiberg(Z, [1] * len(Z), 0)
+    assert Bz == [[0, 1, 1, 1], [1, 1, 0, 0], [1, 0, 1, 0], [1, 0, 0, 1]]
+
+
+@pytest.mark.parametrize("label,verts", [
+    ("L131",   [(0, 0), (1, 0), (2, 1), (0, 1)]),
+    ("C3Z4",   [(0, 0), (2, 0), (0, 2)]),
+    ("rect23", [(0, 0), (2, 0), (2, 1), (0, 1)]),
+    ("trap",   [(0, 0), (3, 0), (2, 1), (0, 1)]),
+    ("F0",     [(-1, 0), (1, 0), (0, 1), (0, -1)]),
+    ("dP3",    [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)]),
+])
+def test_deep_dualities_stay_physical(label, verts):
+    """Regression: through MULTIPLE successive Seiberg dualities on ANY node,
+    every state the app can reach must be a physically valid quiver --
+    non-negative arrow multiplicities, positive ranks, and rank-weighted
+    anomaly freedom at every node.  A move that cannot be defined (adjoint at
+    the node, or dual rank <= 0) must raise ValueError, never return garbage.
+    (Before the adjoint guard, C3/Z4, rect2x3, L131 and the trapezoid all
+    produced negative adjacency entries after 3-4 dualities.)"""
+    import itertools
+    n = len(inverse_quiver_json(verts)["adjacency"])
+    # exhaustive short paths + fixed deep reproducers
+    paths = (list(itertools.product(range(n), repeat=2))
+             + list(itertools.product(range(n), repeat=3)))
+    paths += [(2, 2, 1, 2), (1, 1, 3, 2), (0, 0, 2), (2, 2, 3, 3, 0)]
+    for path in paths:
+        path = [p for p in path if p < n]
+        try:
+            st = seiberg_path(verts, list(path))
+        except ValueError:
+            continue                       # a legitimately refused move
+        A, r = st.adjacency, st.ranks
+        m = len(A)
+        assert all(x >= 1 for x in r), (label, path, "rank<1", r)
+        assert all(A[i][j] >= 0 for i in range(m) for j in range(m)), \
+            (label, path, "negative adjacency", A)
+        for k in range(m):
+            nin = sum(A[i][k] * r[i] for i in range(m))
+            nout = sum(A[k][j] * r[j] for j in range(m))
+            assert nin == nout, (label, path, f"anomaly at {k}", nin, nout)
+
+
 def test_dualized_tiling_has_harmonic_torus_layout():
     """A Seiberg-dualized tiling is drawn with the HARMONIC flat-torus
     embedding (each vertex at the centroid of its true universal-cover
