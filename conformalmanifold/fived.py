@@ -30,7 +30,7 @@ So far:
 
 * **defect group + pairing + global forms** (`defect_group`).  Lines (M2 on
   non-compact 2-cycles mod screening) and surface defects (M5 on non-compact
-  4-cycles mod screening) organise into  D = Gamma_e (+) Gamma_m  with
+  4-cycles mod screening) organize into  D = Gamma_e (+) Gamma_m  with
   Gamma_m ~= Gamma_e = Gamma  by the perfectness of the torsion linking form on
   the link.  Following Albertini-Del Zotto-Garcia Etxebarria-Hosseini
   (arXiv:2005.12831): Gamma = Tor coker(Q2), with Q2 the intersection matrix of

@@ -14,7 +14,7 @@ these N=1 quiver gauge theories *is* Seiberg duality on gauge node k:
                 +  sum_ab  M[ab] b* a*;
   4. reduce:    integrate out quadratic (mass) terms by the F-term equations.
 
-Generalisations over the toolkit original: a W term may pass through k more
+Generalizations over the toolkit original: a W term may pass through k more
 than once (all disjoint through-k pairs are replaced), coefficients are exact
 rationals, and any structure the reduction cannot handle raises `WMutationError`
 (the caller then falls back to adjacency-only tracking) instead of asserting.
@@ -209,7 +209,7 @@ def adjacency_of(arrows, n):
 
 
 def w_json(W):
-    """Serialise the potential for the web API: coefficients exact, integers
+    """Serialize the potential for the web API: coefficients exact, integers
     shown as integers."""
     out = []
     for c, w in sorted(W, key=lambda cw: cw[1]):

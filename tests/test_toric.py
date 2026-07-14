@@ -80,7 +80,7 @@ def test_dp1_is_y21():
 @pytest.mark.parametrize("q", T.default_toric_library(), ids=lambda q: q.label)
 def test_tiling_euler_relation(q):
     # number of gauge nodes == 2 * area of the toric diagram (minimal phase),
-    # and fields == gauge + W terms (Euler characteristic of T^2 tiling = 0).
+    # and fields == gauge + W terms (Euler characteriztic of T^2 tiling = 0).
     assert q.num_fields == q.num_nodes + q.num_w_terms
     if q.diagram:
         assert normalized_area(convex_hull(q.diagram)) == q.num_nodes

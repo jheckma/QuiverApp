@@ -55,7 +55,7 @@ special points the true conformal manifold is larger because extra, non-toric
 marginal operators open up; the two known cases here are flagged with a `note`:
 
     * conifold = Y^{1,0}: this count gives 3, the true dimension is 5
-      (Benvenuti-Hanany) -- enhanced SU(2)xSU(2) flavour symmetry;
+      (Benvenuti-Hanany) -- enhanced SU(2)xSU(2) flavor symmetry;
     * C^3 / N=4 SYM:      this count gives 2, the true dimension is 3
       (Leigh-Strassler tau, beta, h).
 
@@ -595,7 +595,7 @@ def l152() -> ToricQuiver:
 
 
 def del_pezzo(n: int) -> ToricQuiver:
-    """del Pezzo cones realised as toric quivers:
+    """del Pezzo cones realized as toric quivers:
         dP0 = C^3/Z_3(1,1,1) = C(P^2),  dP1 = Y^{2,1}."""
     if n == 0:
         # dP0: 3 nodes, 3 arrows each i->i+1 (9 fields), cubic toric W.
@@ -605,8 +605,8 @@ def del_pezzo(n: int) -> ToricQuiver:
             arrows[f"X{a}"] = (0, 1)
             arrows[f"Y{a}"] = (1, 2)
             arrows[f"Z{a}"] = (2, 0)
-        # toric (two-term) cubic superpotential, antisymmetric in the flavour
-        # index: + X_a Y_b Z_c - X_a Y_c Z_b  over the 3 even/odd flavour triples.
+        # toric (two-term) cubic superpotential, antisymmetric in the flavor
+        # index: + X_a Y_b Z_c - X_a Y_c Z_b  over the 3 even/odd flavor triples.
         W = [
             (+1, ("X0", "Y1", "Z2")), (+1, ("X1", "Y2", "Z0")), (+1, ("X2", "Y0", "Z1")),
             (-1, ("X0", "Y2", "Z1")), (-1, ("X1", "Y0", "Z2")), (-1, ("X2", "Y1", "Z0")),
@@ -635,7 +635,7 @@ def del_pezzo(n: int) -> ToricQuiver:
 #     dim_C M_conf      = B - 1                (boundary lattice points - 1)
 #     # gauge groups    = 2 * area             (normalized area of the polygon)
 #
-# `ToricDiagram` exposes exactly those, so ANY toric geometry can be catalogued
+# `ToricDiagram` exposes exactly those, so ANY toric geometry can be catalogd
 # by its polygon -- the del Pezzo / Hirzebruch cones, the C^3/(Z_n x Z_m)
 # orbifolds, the full L^{a,b,c} family, the 16 reflexive polygons, etc.
 # ---------------------------------------------------------------------------
@@ -736,7 +736,7 @@ def orbifold_znm_diagram(n: int, m: int) -> ToricDiagram:
 
 
 def default_toric_diagram_library():
-    """A broad spread of named toric CY3 catalogued by diagram (no hand tiling).
+    """A broad spread of named toric CY3 catalogd by diagram (no hand tiling).
 
     Demonstrates the reach beyond Y^{p,q}/L^{a,b,c}: the del Pezzo and Hirzebruch
     cones, the C^3/(Z_n x Z_m) orbifold family, and a slice of general L^{a,b,c}.

@@ -340,7 +340,7 @@ def flop(pts, tris, edge):
 #     Iterating from dP0 = P^2:  dP0 -> dP1 -> dP2 -> dP3 -> weak dPs ...
 #     (dP_n has n+3 boundary points).
 #   * BLOW DOWN a -1-curve of S = contract a boundary point whose ray is the
-#     sum of its neighbours' rays, nu = nu_prev + nu_next (with unimodular
+#     sum of its neighbors' rays, nu = nu_prev + nu_next (with unimodular
 #     det(nu_prev, nu_next)) -- the exact inverse.  dP1 -> dP0;  F0 = P^1xP^1
 #     correctly has NO blow-down sites (it is minimal).
 #
@@ -437,7 +437,7 @@ def surface_blowup(points, new_point):
 def surface_blowdown_candidates(points):
     """The blow-down sites of the base surface -- the exact inverse of
     `surface_blowup` (see the section comment above): boundary lattice points W whose
-    ray from the unique interior point O is the sum of its neighbours' rays,
+    ray from the unique interior point O is the sum of its neighbors' rays,
     nu_W = nu_prev + nu_next with det(nu_prev, nu_next) = +-1 -- an
     exceptional (-1)-curve of the surface, contractible.  dP1 -> dP0; F0 has
     none (minimal surface).  Empty when the diagram is not a cone over a
@@ -459,7 +459,7 @@ def surface_blowdown_candidates(points):
         px, py = P[0] - O[0], P[1] - O[1]
         nx, ny = N[0] - O[0], N[1] - O[1]
         if (W[0] - O[0], W[1] - O[1]) != (px + nx, py + ny):
-            continue                      # ray is not the neighbour sum
+            continue                      # ray is not the neighbor sum
         if abs(px * ny - py * nx) != 1:
             continue                      # not a -1-curve (surface singular)
         nh = convex_hull(lat - {W})
@@ -484,7 +484,7 @@ def surface_blowdown(points, corner):
         raise ValueError(
             f"({cx},{cy}) is not a contractible (-1)-curve of the base "
             "surface; choose a highlighted corner (its ray must be the sum of "
-            "its neighbours' rays)")
+            "its neighbors' rays)")
     lat = set(lattice_points(hull))
     lat.discard((cx, cy))
     return sorted(lat)
@@ -534,7 +534,7 @@ def _affine_coeffs(pts, i, j, k, l):
 def convex_heights(pts, tris, margin=1.0, max_iter=20000):
     """A strictly-convex height nu (list, one float per lattice point) whose lower
     hull projects to exactly the triangulation `tris`.  For every internal edge
-    (i,j) with neighbour apexes k,l the lift of l must sit strictly above the
+    (i,j) with neighbor apexes k,l the lift of l must sit strictly above the
     affine plane through the lifted (i,j,k) -- a strict linear inequality on nu.
     Solve the system by Motzkin relaxation (projection onto each violated
     constraint); the paraboloid lift seeds it near the Delaunay phase.  Returns

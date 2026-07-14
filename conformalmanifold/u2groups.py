@@ -16,7 +16,7 @@ w = e^{2 pi i / k}, which give genuine U(2) (not SU(2)) groups.
 
 Every constructor verifies the realized group order against the expected value
 via `closure` (a built-in correctness check), so a wrong generator transcription
-fails loudly rather than silently mislabelling a group.
+fails loudly rather than silently mislabeling a group.
 """
 from __future__ import annotations
 

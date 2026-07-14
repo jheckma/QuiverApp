@@ -25,6 +25,12 @@ Endpoints
                                         renewal on these square gauge faces in order)
         optional &dualize_phase=k      (start the dualize path from toric phase k)
         optional &inverse=0           (skip the brane-tiling reconstruction; geometry only)
+    GET /api/magnetic_quiver?mode=partition&kind=su&N=3&partition=2,1&order=12
+                                      magnetic quiver of a nilpotent orbit + its
+                                      Coulomb-branch (monopole-formula) Hilbert series
+        optional &mode=custom&quiver=...  (hand-typed 3d N=4 quiver)
+    GET /api/magnetic_hasse?kind=su&N=3&method=partition
+                                      Higgs-branch Hasse diagram (Kraft-Procesi poset)
 """
 
 from __future__ import annotations
@@ -211,6 +217,39 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(api.summarize_toric_web(
                     pts, tri, flop, blowup, blowdown, active,
                     dualize, dualize_phase, include_inverse=inc_inv))
+            except (ValueError, KeyError) as exc:
+                self._json({"error": str(exc)}, code=400)
+            except Exception as exc:  # noqa: BLE001
+                self._json({"error": f"internal error: {exc}"}, code=500)
+            return
+
+        if path == "/api/magnetic_quiver":
+            q = parse_qs(parsed.query)
+            try:
+                self._json(api.summarize_magnetic_quiver(
+                    mode=q.get("mode", ["partition"])[0],
+                    kind=q.get("kind", ["su"])[0],
+                    N=int(q.get("N", ["0"])[0] or 0),
+                    partition=q.get("partition", [""])[0],
+                    quiver=q.get("quiver", [""])[0],
+                    order=int(q.get("order", ["12"])[0] or 12),
+                ))
+            except (ValueError, KeyError) as exc:
+                self._json({"error": str(exc)}, code=400)
+            except Exception as exc:  # noqa: BLE001
+                self._json({"error": f"internal error: {exc}"}, code=500)
+            return
+
+        if path == "/api/magnetic_hasse":
+            q = parse_qs(parsed.query)
+            try:
+                self._json(api.summarize_magnetic_hasse(
+                    kind=q.get("kind", ["su"])[0],
+                    N=int(q.get("N", ["0"])[0] or 0),
+                    quiver=q.get("quiver", [""])[0],
+                    method=q.get("method", ["partition"])[0],
+                    partition=q.get("partition", [""])[0],
+                ))
             except (ValueError, KeyError) as exc:
                 self._json({"error": str(exc)}, code=400)
             except Exception as exc:  # noqa: BLE001

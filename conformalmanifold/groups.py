@@ -34,7 +34,7 @@ _ROUND = 6
 def _key(m: np.ndarray) -> tuple:
     """Hashable fingerprint of a matrix, robust to floating point noise."""
     flat = np.round(m, _ROUND).ravel()
-    # normalise -0.0 to 0.0 so the key is canonical
+    # normalize -0.0 to 0.0 so the key is canonical
     return tuple((float(z.real) + 0.0, float(z.imag) + 0.0) for z in flat)
 
 
@@ -190,7 +190,7 @@ def octahedral_S4() -> MatrixGroup:
 
 def icosahedral_A5() -> MatrixGroup:
     """A5 = Sigma(60), the icosahedral group, order 60 (3-dim irrep in SU(3))."""
-    # standard 3-dim icosahedral generators (golden-ratio realisation)
+    # standard 3-dim icosahedral generators (golden-ratio realization)
     phi = (1 + math.sqrt(5)) / 2
     # order-2 and order-5 generators of A5 in its 3-dimensional irrep
     s = np.array([[-1, 0, 0],

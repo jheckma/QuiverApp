@@ -67,7 +67,7 @@ def test_inverse_adjacency_anomaly_free():
 
 def test_inverse_matches_mckay_for_orbifold():
     # C^3/Z3(1,1,1) = dP0: the reconstructed quiver must match the McKay quiver
-    # (3 nodes, 9 fields, cyclic 3-arrow structure) up to relabelling of nodes.
+    # (3 nodes, 9 fields, cyclic 3-arrow structure) up to relabeling of nodes.
     t = inverse_quiver([(1, 0), (0, 1), (-1, -1)])
     g = cyclic(3, (1, 1, 1))
     mckay = build_quiver(g, build_character_table(g))
@@ -121,7 +121,7 @@ def test_kasteleyn_newton_polygon_recovers_diagram(label, verts, ngauge, nfields
 @pytest.mark.parametrize("label,verts,ngauge,nfields", CASES)
 def test_forward_extract_roundtrip(label, verts, ngauge, nfields):
     """forward_extract(t.to_dimer()) must reproduce the Gulotta tiling: same
-    counts, consistent checks, identical quiver up to relabelling, and the same
+    counts, consistent checks, identical quiver up to relabeling, and the same
     Kasteleyn Newton polygon.  This gates every Seiberg-duality feature."""
     t = inverse_quiver(verts)
     r = forward_extract(t.to_dimer(), verts)
@@ -132,7 +132,7 @@ def test_forward_extract_roundtrip(label, verts, ngauge, nfields):
     assert c["gauge_eq_2area"] and c["white_eq_black"], label
     assert c["anomaly_free"] and c["toric_superpotential"], label
     assert c["euler_V_minus_E_plus_F"] == 0, label
-    # same quiver up to node relabelling
+    # same quiver up to node relabeling
     assert canonical_adjacency(r.adjacency_int()) == \
         canonical_adjacency(t.adjacency_int()), label
     # same toric diagram (homology carried through the combinatorial map)
@@ -227,7 +227,7 @@ def _adjacency_from_arrows(n, arrows):
 
 
 def _conj_canonical(A):
-    """Canonical key up to node relabelling AND charge conjugation."""
+    """Canonical key up to node relabeling AND charge conjugation."""
     n = len(A)
     At = [[A[j][i] for j in range(n)] for i in range(n)]
     return min(canonical_adjacency(A), canonical_adjacency(At))
@@ -267,7 +267,7 @@ DP3_LIT = {
 
 def test_dp2_phases_match_literature_quivers():
     """Both dP2 phases must BE the Feng-Hanany-He quivers (up to node
-    relabelling + charge conjugation), not merely have the right field count."""
+    relabeling + charge conjugation), not merely have the right field count."""
     phases = enumerate_toric_phases([(1, 0), (0, 1), (-1, 0), (-1, -1), (0, -1)])
     got = {_conj_canonical(p.adjacency_int()) for p in phases}
     want = {_conj_canonical(A) for A in DP2_LIT.values()}
@@ -348,7 +348,7 @@ def test_urban_renewal_spp_square_face_self_dual():
     face edges), so corner detection must work at the dart-transition level --
     vertex-level detection returns None for every orientation (regression for
     a confirmed completeness bug).  The SPP square move is self-dual: the dual
-    is again SPP (3 nodes, 7 fields, same quiver up to relabelling)."""
+    is again SPP (3 nodes, 7 fields, same quiver up to relabeling)."""
     SPP = [(0, 0), (2, 0), (1, 1), (0, 1)]
     t = inverse_quiver(SPP)
     dimer = t.to_dimer()
@@ -445,8 +445,8 @@ def test_dualize_path_interactive_urban_renewal():
 
 
 def _seiberg_rule(A, k):
-    """Labelled field-theory Seiberg duality on node k: reverse k's flavors,
-    add mesons between its in/out neighbours, integrate out massive
+    """Labeled field-theory Seiberg duality on node k: reverse k's flavors,
+    add mesons between its in/out neighbors, integrate out massive
     vector-like pairs."""
     n = len(A)
     B = [row[:] for row in A]
@@ -471,17 +471,17 @@ def _seiberg_rule(A, k):
     ("dP3", [(1, 0), (0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1)]),
 ])
 def test_dualize_preserves_node_identity(label, verts):
-    """Dualizing node k must return the LABELLED quiver of field-theory
+    """Dualizing node k must return the LABELED quiver of field-theory
     Seiberg duality at node k -- spectators keep their labels, node k keeps
-    its label with reversed flavors, mesons connect its neighbours (regression:
+    its label with reversed flavors, mesons connect its neighbors (regression:
     the trace-order renumbering used to scramble labels, so dualizing node 2
-    of F0 displayed the same labelled quiver as node 0)."""
+    of F0 displayed the same labeled quiver as node 0)."""
     seed = inverse_quiver_json(verts)
     A0 = seed["adjacency"]
     for f in seed["square_faces"]:
         t = dualize_path(verts, [f])
         assert t.adjacency_int() == _seiberg_rule(A0, f), (label, f)
-    # composition: dualizing the same node twice is the identity (labelled)
+    # composition: dualizing the same node twice is the identity (labeled)
     f = seed["square_faces"][0]
     back = dualize_path(verts, [f, f])
     assert back.adjacency_int() == A0, label
@@ -640,7 +640,7 @@ def test_deep_dualities_stay_physical(label, verts):
 def test_dualized_tiling_has_harmonic_torus_layout():
     """A Seiberg-dualized tiling is drawn with the HARMONIC flat-torus
     embedding (each vertex at the centroid of its true universal-cover
-    neighbour images, using the solved homology) -- not the schematic
+    neighbor images, using the solved homology) -- not the schematic
     spanning-tree layout, which tangled the picture."""
     F0 = [(-1, 0), (1, 0), (0, 1), (0, -1)]
     d = dualize_path(F0, [0])
@@ -680,7 +680,7 @@ def test_integer_kernel_is_saturated():
 
 
 def test_canonical_adjacency_permutation_stable():
-    """A node relabelling must not change the canonical adjacency key."""
+    """A node relabeling must not change the canonical adjacency key."""
     import itertools
     t = inverse_quiver([(-1, 0), (1, 0), (0, 1), (0, -1)])   # F0
     A = t.adjacency_int()
