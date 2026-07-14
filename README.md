@@ -58,9 +58,57 @@ Columns: `name`, `family`, `description`, `grp_order`, `is_abelian`,
 is idempotent (upsert on `name`), so a sweep can be extended and rebuilt without
 duplicating rows.
 
+## Magnetic quivers for 4d N=2 (`conformalmanifold.magnetic`, `conformalmanifold.hasse`)
+
+The **Magnetic quivers** web tab implements the Hanany–Bourget magnetic-quiver
+program. A *magnetic quiver* is a 3d N=4 quiver whose **Coulomb branch** is the
+moduli space of interest — here the closure of a **nilpotent orbit**
+`Ō_λ` of a classical group, realized as the Higgs branch of a 4d N=2 theory. Its
+Coulomb-branch Hilbert series is computed from the **monopole formula**
+(Cremonesi–Hanany–Zaffaroni, arXiv:1309.2657), and the Higgs-mechanism **Hasse
+diagram** from **Kraft–Procesi quiver subtraction** (Bourget et al.,
+arXiv:1908.04245; Cabrera–Hanany, arXiv:1609.07798).
+
+- **Partition input.** A partition `λ` of `N` builds the balanced linear quiver
+  `M(λ)` (flavors `w_i = λ_i − λ_{i+1}`, ranks `N_i = Σ_j (min(i,j) − ij/N) w_j`)
+  whose Coulomb branch is `Ō_λ`. Examples: `λ=(N)` gives `T[SU(N)]` (the full
+  nilcone), `λ=(2,1^{N−2})` the minimal orbit (reduced one-instanton moduli space).
+- **Custom input.** A hand-typed linear quiver such as `1-2-[3]` (ranks joined by
+  `-`, flavors in `[ ]`) is run through the same monopole-formula engine.
+- **Hilbert series** is returned in the 2Δ convention (a scalar contributes `t`);
+  the coefficient of `t^{2k}` counts degree-`k` Coulomb-branch operators.
+- **Hasse diagram** shows the symplectic leaves of the selected orbit closure,
+  each edge a minimal degeneration labeled by its transverse slice — `a_k`
+  (minimal orbit of `sl(k+1)`) or `A_k` (Kleinian `C²/Z_{k+1}`). For a custom
+  quiver it is obtained by recognizing the quiver as some `M(λ)`.
+
+Gauge groups: unitary `U(N)`/`SU(2)` are exact. The custom builder also lets you
+place orthosymplectic `USp(2n)`/`SO(N)`/`O(N)` nodes (click a node's gauge chip to
+cycle the group). `USp(2n)=C`, `SO(2n+1)=B` and `SO(2n)=D` nodes are validated against
+Harding–Mekareeya–Zhong (arXiv:2505.03875) and Bourget et al. (arXiv:2007.04667) —
+locked fixtures `USp(2)+3f = C²/Z₄` → `1,1,3,3,5,5,7` and `SO(4)+3v` →
+`1,1,5,6,15,19,35` (D-type Pfaffian + `m_N<0` chamber). SO/USp **bifundamentals** are
+half-hypermultiplets (pseudoreal), validated by a consistency check. Still flagged
+**experimental**: `O(N)` (the charge-conjugation ±-sectors and gauged-flavor flux
+phase are not implemented) and the OSp orbit→quiver construction (partition mode).
+
+```
+python -m conformalmanifold --serve                 # then open the Magnetic quivers tab
+GET /api/magnetic_quiver?mode=partition&kind=su&N=3&partition=2,1&order=12
+GET /api/magnetic_quiver?mode=custom&quiver=1-2-[3]&order=12
+GET /api/magnetic_hasse?kind=su&N=4&partition=2,1,1
+```
+
+```python
+from conformalmanifold import magnetic, hasse
+q = magnetic.magnetic_quiver_from_partition("su", (2, 1))   # [1]-(1)-(1)-[1]
+coeffs, info = magnetic.monopole_hilbert_series(q, order=12) # Coulomb-branch HS
+diagram = hasse.nilpotent_hasse("su", 3)                     # orbit-closure Hasse
+```
+
 ## The pipeline
 
-**Step 1 — the group.** Γ is realised as an explicit 3×3 matrix group inside
+**Step 1 — the group.** Γ is realized as an explicit 3×3 matrix group inside
 SU(3); the matrices *are* the action on C³ (treated as a point set). Built-in
 families follow standard names from the classification of finite SU(3)
 subgroups:
@@ -209,7 +257,7 @@ points the true conformal manifold is larger, because extra non-toric marginal
 operators open up — the two known cases are flagged with a `note`:
 
 - `conifold = Y^{1,0}`: this count gives **3**, the true dimension is **5**
-  (Benvenuti–Hanany) — enhanced `SU(2)×SU(2)` flavour symmetry;
+  (Benvenuti–Hanany) — enhanced `SU(2)×SU(2)` flavor symmetry;
 - `C³` / N=4 SYM: this count gives **2**, the true dimension is **3**
   (Leigh–Strassler `τ, β, h`).
 

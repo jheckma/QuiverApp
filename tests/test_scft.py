@@ -1,4 +1,4 @@
-"""Superconformal-data tests: orbifold anomalies + toric volume minimisation."""
+"""Superconformal-data tests: orbifold anomalies + toric volume minimization."""
 
 from fractions import Fraction
 
@@ -64,7 +64,7 @@ def test_orbifold_nonabelian_delta27():
 
 
 # ---------------------------------------------------------------------------
-# Toric SCFT via MSY volume minimisation
+# Toric SCFT via MSY volume minimization
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize("corners,expect", [
     ([(0, 0), (1, 0), (0, 1)], 1 / 4),                 # C^3 / S^5
@@ -96,7 +96,7 @@ def test_toric_conifold_R_charges_half():
 
 
 def test_toric_ypq_three_dim_and_converges():
-    # Y^{2,1} = dP1; volume minimisation must converge and give a finite a=c.
+    # Y^{2,1} = dP1; volume minimization must converge and give a finite a=c.
     g = T.ypq(2, 1)
     hull = T.convex_hull(g.diagram)
     out = toric_scft_json(hull)

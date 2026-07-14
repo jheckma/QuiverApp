@@ -4,7 +4,7 @@ from conformalmanifold import bibliography as B
 
 
 def test_entries_well_formed():
-    assert len(B.ENTRIES) == 21
+    assert len(B.ENTRIES) == 28
     keys = [e["key"] for e in B.ENTRIES]
     assert len(set(keys)) == len(keys)                     # unique texkeys
     for e in B.ENTRIES:
@@ -68,7 +68,7 @@ def test_latex_bibliography_block():
 
 def test_entries_json_payload():
     j = B.entries_json()
-    assert len(j["entries"]) == 21
+    assert len(j["entries"]) == 28
     assert all("latex" in e and "bibtex" in e for e in j["entries"])
-    assert j["bibtex_all"].count("@article") == 21
+    assert j["bibtex_all"].count("@article") == 28
     assert "INSPIRE" in j["fetched_from"]

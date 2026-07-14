@@ -130,7 +130,7 @@ def build_character_table(g: MatrixGroup) -> CharacterTable:
 
     # For each eigenvector v (a common eigenvector of all M_k), the eigenvalue
     # of M_k is  omega_k = |C_k| chi(C_k) / chi(1).  Recover chi up to scale,
-    # then normalise with  sum_k |C_k| |chi(C_k)|^2 = |G|.
+    # then normalize with  sum_k |C_k| |chi(C_k)|^2 = |G|.
     chars = np.zeros((r, r), dtype=complex)
     found = []
     for col in range(vecs.shape[1]):

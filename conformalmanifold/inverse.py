@@ -30,7 +30,7 @@ graph** of the tiling:
 
 "Properly ordered" = the curves are placed so the arrangement is the minimal,
 non-degenerate one (no triple points; every crossing 4-valent; faces correctly
-typed).  We realise it by searching base-point offsets until the extracted tiling
+typed).  We realize it by searching base-point offsets until the extracted tiling
 is consistent (correct counts, anomaly-free, genuinely two-term superpotential);
 for the small polygons of interest a valid placement is found in a few tries.
 
@@ -792,32 +792,32 @@ def solve_homology(dimer, target_hull):
 
 
 # ===========================================================================
-# phase invariant: distinguish Seiberg-dual toric phases up to node relabelling
+# phase invariant: distinguish Seiberg-dual toric phases up to node relabeling
 # ===========================================================================
 def _wl_hash(A, rounds=None):
-    """A Weisfeiler-Lehman colour-refinement hash of a directed multigraph
+    """A Weisfeiler-Lehman color-refinement hash of a directed multigraph
     adjacency -- a permutation-invariant fingerprint, used as a tractable
     fallback canonical key when brute-force node permutation is too expensive."""
     n = len(A)
     if n == 0:
         return ()
     rounds = rounds if rounds is not None else n
-    colour = [hash(()) for _ in range(n)]
+    color = [hash(()) for _ in range(n)]
     for _ in range(rounds):
         new = []
         for i in range(n):
-            out = tuple(sorted((A[i][j], colour[j]) for j in range(n) if A[i][j]))
-            inc = tuple(sorted((A[j][i], colour[j]) for j in range(n) if A[j][i]))
-            new.append(hash((colour[i], out, inc)))
-        colour = new
-    return tuple(sorted(colour))
+            out = tuple(sorted((A[i][j], color[j]) for j in range(n) if A[i][j]))
+            inc = tuple(sorted((A[j][i], color[j]) for j in range(n) if A[j][i]))
+            new.append(hash((color[i], out, inc)))
+        color = new
+    return tuple(sorted(color))
 
 
 def canonical_adjacency(A):
-    """A canonical (node-relabelling-invariant) key for a quiver adjacency matrix.
+    """A canonical (node-relabeling-invariant) key for a quiver adjacency matrix.
 
     Exact (lexicographically minimal over all node permutations) for small
-    quivers; falls back to a WL colour-refinement hash for large node counts
+    quivers; falls back to a WL color-refinement hash for large node counts
     where brute force is infeasible.  Used to dedup Seiberg-dual phases.
     """
     from itertools import permutations
@@ -855,7 +855,7 @@ def integrate_masses(dimer, return_map=False):
     A 2-valent vertex is a quadratic superpotential term  W ⊃ e1·e2  -- a mass
     pair for the two fields e1, e2.  Integrating them out (setting the F-term
     e1 ∝ e2 and substituting) deletes the vertex and both edges and *merges*
-    the two opposite-colour neighbours into one vertex, splicing their rotation
+    the two opposite-color neighbors into one vertex, splicing their rotation
     orders where the deleted edges sat:
 
         rot(merged) = rot(v1) cut open at e1  +  rot(v2) cut open at e2.
@@ -864,7 +864,7 @@ def integrate_masses(dimer, return_map=False):
     pairs).  Returns the input dimer unchanged (homology intact) if there was
     nothing to do; otherwise a new DimerGraph with all edge homologies reset to
     (0,0) -- re-solve with `solve_homology`.  Returns None on a degenerate
-    contraction (double edge at the mass vertex, digon neighbour pair, or a
+    contraction (double edge at the mass vertex, digon neighbor pair, or a
     vertex left with fewer than 2 edges).
 
     With `return_map=True` returns (dimer, edge_map) instead, where edge_map
@@ -883,8 +883,8 @@ def integrate_masses(dimer, return_map=False):
         e1, e2 = rot[mv]
         if e1 == e2:
             return None                       # double edge: not a mass pair
-        col = mv[0]                           # colour of the 2-valent vertex
-        okey = "b" if col == "W" else "w"     # endpoint key of its neighbours
+        col = mv[0]                           # color of the 2-valent vertex
+        okey = "b" if col == "W" else "w"     # endpoint key of its neighbors
         ncol = "B" if col == "W" else "W"
         v1 = (ncol, edges[e1][okey])
         v2 = (ncol, edges[e2][okey])
@@ -927,11 +927,11 @@ def urban_renewal(dimer, face_orbit, vertices, node_of_face=None):
     Gauge nodes keep their IDENTITY through the move: every gauge face other
     than the dualized one persists (retaining its off-square boundary edges),
     so the dual's faces are matched back to the originals through the
-    surviving edges and the returned tiling's nodes are relabelled to their
+    surviving edges and the returned tiling's nodes are relabeled to their
     heritage ids -- spectator nodes keep their labels, the dualized node keeps
-    its label with reversed flavors, and the mesons connect its neighbours.
+    its label with reversed flavors, and the mesons connect its neighbors.
     (Without this the trace-order renumbering scrambled the labels: dualizing
-    node 2 of F0 displayed the same LABELLED quiver as dualizing node 0.)
+    node 2 of F0 displayed the same LABELED quiver as dualizing node 0.)
     `node_of_face` optionally maps this dimer's trace-face indices to display
     ids (composing heritage along a duality path); the result's map is stored
     in `BraneTiling.face_to_node`.
@@ -940,7 +940,7 @@ def urban_renewal(dimer, face_orbit, vertices, node_of_face=None):
     alternating incoming (X) / outgoing (Y).  Each of its four corners pairs one
     Y with one X into a *meson* M = Y.X.  The dual tiling:
       * the surviving corner vertex keeps its off-face edges plus that meson;
-      * a new opposite-colour cubic vertex {M, rev(Y), rev(X)} carries the meson
+      * a new opposite-color cubic vertex {M, rev(Y), rev(X)} carries the meson
         superpotential coupling, with the X,Y arrows reversed.
     The move is local, but the dual dimer carries the WHOLE graph: vertices not
     on the face ("spectators") keep their rotation orders verbatim, and each
@@ -974,23 +974,23 @@ def urban_renewal(dimer, face_orbit, vertices, node_of_face=None):
     # around the white endpoint of e when s = -1 and the black one when s = +1,
     # so the vertex shared by consecutive darts -- and its rotation-adjacent
     # (e1, e2) edge pair -- is read straight off the orbit.
-    corners = []                             # (colour, vtx, e1, e2, ye, xe)
+    corners = []                             # (color, vtx, e1, e2, ye, xe)
     for i in range(4):
         e1, s1 = orb[i]
         e2, s2 = orb[(i + 1) % 4]
         if s2 != -s1:
             return None                      # not an alternating gauge face
-        colour = "W" if s1 == -1 else "B"
-        v = edges[e1]["w" if colour == "W" else "b"]
+        color = "W" if s1 == -1 else "B"
+        v = edges[e1]["w" if color == "W" else "b"]
         ye, xe = (e1, e2) if s1 == 1 else (e2, e1)
-        corners.append((colour, v, e1, e2, ye, xe))
+        corners.append((color, v, e1, e2, ye, xe))
 
     # label-level rotations.  Spectator vertices are untouched by the move;
     # each corner occurrence has its adjacent (e1, e2) pair replaced -- in
     # place -- by that corner's meson (in the W term ...Y.X... becomes ...M...).
-    occ = {}                                 # (colour, v) -> corner indices
-    for ci, (colour, v, *_rest) in enumerate(corners):
-        occ.setdefault((colour, v), []).append(ci)
+    occ = {}                                 # (color, v) -> corner indices
+    for ci, (color, v, *_rest) in enumerate(corners):
+        occ.setdefault((color, v), []).append(ci)
     Wrots, Brots = {}, {}                    # vertex label -> cyclic label list
     for w in range(dimer.nW):
         if ("W", w) not in occ:
@@ -998,8 +998,8 @@ def urban_renewal(dimer, face_orbit, vertices, node_of_face=None):
     for b in range(dimer.nB):
         if ("B", b) not in occ:
             Brots[f"V_B{b}"] = [f"e{e}" for e in dimer.rot_b[b]]
-    for (colour, v), cis in occ.items():
-        rot = dimer.rot_w[v] if colour == "W" else dimer.rot_b[v]
+    for (color, v), cis in occ.items():
+        rot = dimer.rot_w[v] if color == "W" else dimer.rot_b[v]
         k = len(rot)
         if k - len(cis) < 2:                 # survivor would drop below 2-valent
             return None
@@ -1013,10 +1013,10 @@ def urban_renewal(dimer, face_orbit, vertices, node_of_face=None):
             skip.add((p + 1) % k)
         surv = [meson_at.get(p, f"e{rot[p]}") for p in range(k)
                 if p not in skip]
-        (Wrots if colour == "W" else Brots)[f"S_{colour}{v}"] = surv
-    cubics = [(f"N{ci}", "B" if colour == "W" else "W",
+        (Wrots if color == "W" else Brots)[f"S_{color}{v}"] = surv
+    cubics = [(f"N{ci}", "B" if color == "W" else "W",
                f"m{ci}", f"y_{ye}", f"x_{xe}")
-              for ci, (colour, v, e1, e2, ye, xe) in enumerate(corners)]
+              for ci, (color, v, e1, e2, ye, xe) in enumerate(corners)]
 
     # cubic vertex {M, rev(Y), rev(X)} orientation: the handedness-derived
     # combination first (o = 1 at white corners, 0 at black), then the
@@ -1027,9 +1027,9 @@ def urban_renewal(dimer, face_orbit, vertices, node_of_face=None):
     for orient in orients:
         Wr = dict(Wrots)
         Br = dict(Brots)
-        for (lab, colour, m, y, x), o in zip(cubics, orient):
+        for (lab, color, m, y, x), o in zip(cubics, orient):
             order = [m, y, x] if o == 0 else [m, x, y]
-            (Wr if colour == "W" else Br)[lab] = order
+            (Wr if color == "W" else Br)[lab] = order
 
         wv = {l: vlab for vlab, labs in Wr.items() for l in labs}
         bv = {l: vlab for vlab, labs in Br.items() for l in labs}
@@ -1278,7 +1278,7 @@ def _orbifold_honeycomb(vertices):
     Construction: the C^3 tiling is the honeycomb with one white + one black
     vertex per cell c of Z^2 and edges W(c)-B(c), W(c)-B(c+x), W(c)-B(c+y)
     (Kasteleyn det 1 + x + y = the unit triangle).  Quotienting by Lambda
-    keeps one cell per coset of Z^2/Lambda; an edge into a neighbouring coset
+    keeps one cell per coset of Z^2/Lambda; an edge into a neighboring coset
     carries homology = the Lambda-coordinates of the wrap-around displacement.
     The right Lambda is found by enumerating the index-k sublattices (Hermite
     forms (a,0),(b,d), ad = k) and keeping the one whose zig-zag strand
@@ -1524,8 +1524,8 @@ def _harmonic_torus_layout(t):
     """Install a HARMONIC (Tutte) embedding on the flat torus for a mutated
     tiling: its fields carry solved homology classes, and the renderer draws
     each universal-cover edge from the white vertex to (black - h), so
-    minimising  sum_e |x_w - x_b + h_e|^2  (a Laplacian linear system with one
-    vertex pinned) places every vertex at the centroid of its true neighbour
+    minimizing  sum_e |x_w - x_b + h_e|^2  (a Laplacian linear system with one
+    vertex pinned) places every vertex at the centroid of its true neighbor
     images.  This is the natural flat-torus drawing -- crossing-free for the
     consistent tilings produced here -- and replaces the schematic
     spanning-tree layout, which ignored the homology and drew a tangle."""
@@ -1660,7 +1660,7 @@ def dualize_path(vertices, path, start_phase: int = 0):
     `path` is a list of gauge-NODE ids (as displayed); each must be a square
     face (N_f = 2 N_c) of the tiling reached so far (starting from the seed,
     or from `enumerate_toric_phases(vertices)[start_phase]`).  Node identity
-    is preserved through every move (heritage relabelling in `urban_renewal`),
+    is preserved through every move (heritage relabeling in `urban_renewal`),
     so "dualize node k" acts at the displayed node k at every step.  Returns
     the resulting BraneTiling; raises ValueError if an id is not a square face
     or the dual fails to Newton-certify."""
@@ -1673,7 +1673,7 @@ def dualize_path(vertices, path, start_phase: int = 0):
 def quiver_seiberg(A, ranks, k):
     """General quiver-level Seiberg duality on node k (ranks in units of N):
     N_c -> N_f - N_c, all flavors at k reversed, mesons A[i][k]*A[k][j] added
-    between its neighbours, massive vector-like pairs integrated out.  Returns
+    between its neighbors, massive vector-like pairs integrated out.  Returns
     (A', ranks').  Raises ValueError if the dual rank would be < 1, or if node
     k carries an adjoint (self-loop): ordinary SU(N) Seiberg duality is not
     defined for a gauge node with adjoint matter (that is a Kutasov-type
@@ -1697,7 +1697,7 @@ def quiver_seiberg(A, ranks, k):
     B = [row[:] for row in A]
     for j in range(n):
         B[k][j], B[j][k] = A[j][k], A[k][j]          # reverse flavors at k
-    # mesons M[ij] = A[i][k]*A[k][j] between k's neighbours (i,j != k).  Keep the
+    # mesons M[ij] = A[i][k]*A[k][j] between k's neighbors (i,j != k).  Keep the
     # diagonal i==j: M[ii] is a genuine ADJOINT of node i when k has an arrow both
     # from and to i -- dropping it (an old `i != j` clause) under-counted fields.
     mes = [[0] * n for _ in range(n)]
@@ -1708,7 +1708,7 @@ def quiver_seiberg(A, ranks, k):
                 B[i][j] += mes[i][j]
     # integrate out mass terms: ONLY a NEW meson can be massive, and only against
     # an OPPOSITE existing arrow (this is what the superpotential Delta-term pairs
-    # up).  The old blanket min over every pair wrongly cancelled pre-existing
+    # up).  The old blanket min over every pair wrongly canceled pre-existing
     # vector-like bifundamentals that have no mass term (e.g. spectator conifold
     # pairs, the C^3/(Z2xZ2) dual).  Never touch the diagonal (an adjoint is not
     # integrated out here, and the blanket loop turned M[ii] into -M[ii]).
@@ -1849,7 +1849,7 @@ def dualize_path_json(vertices, path, start_phase: int = 0) -> dict:
 
 
 def _tiling_json(t, vertices) -> dict:
-    """Serialise one BraneTiling (a single toric phase) for the web API."""
+    """Serialize one BraneTiling (a single toric phase) for the web API."""
     checks = dict(t.checks)
     if t.num_white <= KAST_NEWTON_MAX_WHITE:
         newton = kasteleyn_newton_polygon(t)
@@ -1906,7 +1906,7 @@ def inverse_quiver_json(vertices, **kw) -> dict:
 
 def inverse_phases_json(vertices, max_phases: int = 12) -> dict:
     """All distinct toric (Seiberg-dual) phases of the diagram, for the web API:
-    a list of serialised tilings (phase 0 = the seed), so the toric tab can
+    a list of serialized tilings (phase 0 = the seed), so the toric tab can
     cycle between them.  Each is independently Newton-certified and normalized
     so its gauge-node numbering matches the interactive urban-renewal face
     indices (`square_faces`)."""

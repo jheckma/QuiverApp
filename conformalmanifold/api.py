@@ -1,4 +1,4 @@
-"""JSON-serialisable summaries of the pipeline, for the web frontend."""
+"""JSON-serializable summaries of the pipeline, for the web frontend."""
 
 from __future__ import annotations
 
@@ -109,6 +109,28 @@ def summarize_bps_quiver(quiver: str, sequence: str, kind: str = "matrix",
     return bps_quiver_json(quiver, sequence, kind, phases, masses)
 
 
+def summarize_magnetic_quiver(mode: str = "partition", kind: str = "su",
+                              N: int = 0, partition: str = "",
+                              quiver: str = "", order: int = 12) -> dict:
+    """Magnetic quiver + Coulomb-branch monopole-formula data for the frontend.
+
+    ``mode='partition'`` builds M(lambda) for a nilpotent orbit of a classical group;
+    ``mode='custom'`` reads a hand-typed 3d N=4 quiver (Phase 6).
+    """
+    from . import magnetic as Mg
+    if mode == "custom":
+        return Mg.monopole_series_json(quiver, order)
+    return Mg.magnetic_from_partition_json(kind, int(N), partition, order)
+
+
+def summarize_magnetic_hasse(kind: str = "su", N: int = 0, quiver: str = "",
+                             method: str = "partition", partition: str = "") -> dict:
+    """Higgs-branch Hasse diagram (Kraft-Procesi poset / quiver subtraction)."""
+    from . import hasse as Hz
+    return Hz.hasse_json(kind=kind, N=int(N), quiver_text=quiver, method=method,
+                         partition=partition)
+
+
 def _newton_monomial(point) -> str:
     x, y = (int(point[0]), int(point[1]))
     factors = []
@@ -211,6 +233,10 @@ def summarize_bps_toric_quiver(points, sequence: str, phases: str = "",
             newton, num_nodes=out["quiver"]["num_nodes"])
     except Exception as exc:                       # never break BPS on this extra
         out["spectral_network"] = {"error": str(exc)}
+    # the brane tiling (dimer): its zig-zag paths ARE the spectral network's
+    # asymptotic (p,q) legs; carry it so the BPS tab can draw the dimer too.
+    if inv.get("available") and inv.get("tiling"):
+        out["tiling"] = inv["tiling"]
     return out
 
 
@@ -225,7 +251,7 @@ def summarize_toric_web(points, triangulation=None, flop_edge=None,
     physicist draws), return its convex-hull toric diagram, a triangulation
     (resolution / toric phase) of it, the dual (p,q) 5-brane web for that
     triangulation, the conformal-manifold dimension, and -- when the geometry is
-    recognised -- the explicit quiver gauge theory.
+    recognized -- the explicit quiver gauge theory.
 
     `points`        : iterable of (x, y) integer lattice points.
     `triangulation` : optional list of index-triples (into the canonical lattice

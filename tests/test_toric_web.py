@@ -51,7 +51,7 @@ def test_gl2z_equiv_under_shear_and_translation():
 
 
 # --------------------------------------------------------------------------
-# identify_toric: recognise named geometries up to GL(2,Z)
+# identify_toric: recognize named geometries up to GL(2,Z)
 # --------------------------------------------------------------------------
 def test_identify_conifold_sheared():
     sq = [(0, 0), (1, 0), (1, 1), (0, 1)]

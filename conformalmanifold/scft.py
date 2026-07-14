@@ -30,12 +30,12 @@ Two routes that agree on their overlap (the C^3/Gamma orbifold points):
     i.e. |Gamma| times the N=4 value -- the field-theory shadow of
     Vol(S^5/Gamma) = Vol(S^5)/|Gamma| in the dual AdS_5 x S^5/Gamma.
 
-  TORIC CY3  -- Martelli-Sparks-Yau volume (Z-) minimisation over the Reeb
+  TORIC CY3  -- Martelli-Sparks-Yau volume (Z-) minimization over the Reeb
     vector (hep-th/0503183, hep-th/0503184).  At leading order in N
 
         a = c = pi^3 N^2 / (4 Vol(X_5)),
 
-    with  Vol(X_5)  the minimised Sasaki-Einstein volume read off the toric
+    with  Vol(X_5)  the minimized Sasaki-Einstein volume read off the toric
     diagram, and the per-corner R-charges  R_a = 2 t_a / sum_b t_b  (so
     sum_a R_a = 2).  Reproduces  a = N^2/4  for S^5 (C^3),  27 N^2/64  for the
     conifold, and  |Gamma| N^2/4  at the C^3/Gamma orbifold points -- matching
@@ -178,7 +178,7 @@ def orbifold_scft_json(group: MatrixGroup, quiver: McKayQuiver) -> dict:
 
 
 # ===========================================================================
-# Toric CY3 -- Martelli-Sparks-Yau Sasaki-Einstein volume minimisation
+# Toric CY3 -- Martelli-Sparks-Yau Sasaki-Einstein volume minimization
 # ===========================================================================
 def _det3(u, v, w) -> float:
     return float(np.linalg.det(np.array([u, v, w], dtype=float)))
@@ -189,7 +189,7 @@ def _cross(u, v):
 
 
 def minimize_volume(corners):
-    """Z-minimise the toric Sasaki-Einstein volume over the Reeb vector.
+    """Z-minimize the toric Sasaki-Einstein volume over the Reeb vector.
 
     `corners` : CCW lattice-polygon vertices (the corners of the toric diagram;
                 collinear boundary points dropped) -- the extremal rays of the
@@ -201,7 +201,7 @@ def minimize_volume(corners):
         n_a  = det(V_{a-1}, V_a, V_{a+1}),
         D1_a = (V_{a-1} x V_a) . b,   D2_a = (V_a x V_{a+1}) . b,
 
-    minimised over (b2, b3) (b1 = 3 fixed by the CY condition).  The minimised
+    minimized over (b2, b3) (b1 = 3 fixed by the CY condition).  The minimized
     Sasaki-Einstein volume is Vol(X_5) = (pi^3 / 3) g_min, and `t` are the
     per-corner contributions t_a = n_a/(D1_a D2_a) at the minimum (R_a = 2 t_a /
     g_min, sum_a R_a = 2).  The function is strictly convex on the Reeb cone
@@ -327,7 +327,7 @@ def toric_field_R_charges(corners, fields, superpotential, corner_R) -> dict:
 
     field_R = [{"label": f["label"], "src": f["src"], "tgt": f["tgt"],
                 "R": round(R[f["label"]], 5)} for f in fields]
-    # distinct values, clustering numeric-minimisation noise (tol 1e-3)
+    # distinct values, clustering numeric-minimization noise (tol 1e-3)
     distinct = []
     for v in sorted(R[f["label"]] for f in fields):
         if not distinct or abs(v - distinct[-1]) > 1e-3:
@@ -344,7 +344,7 @@ def toric_scft_json(corners) -> dict:
     """Superconformal data of the toric CY3 SCFT, from its toric diagram.
 
     `corners` : CCW lattice-polygon vertices.  Returns central charge a = c (as
-    a coefficient of N^2), the minimising Reeb vector and SE volume ratio, and
+    a coefficient of N^2), the minimizing Reeb vector and SE volume ratio, and
     the per-corner superconformal R-charges (sum = 2)."""
     g, b, t, ok = minimize_volume(corners)
     a_over_n2 = 3.0 / (4.0 * g)                 # = pi^3 / (4 Vol);  S^5 -> 1/4
@@ -352,7 +352,7 @@ def toric_scft_json(corners) -> dict:
     pts = [(int(round(x)), int(round(y))) for (x, y) in corners]
     return {
         "method": "Martelli–Sparks–Yau Sasaki–Einstein volume "
-                  "minimisation",
+                  "minimization",
         "a": {"val": a_over_n2},                # coefficient of N^2
         "c": {"val": a_over_n2},                # a = c at leading order in N
         "a_eq_c": True,

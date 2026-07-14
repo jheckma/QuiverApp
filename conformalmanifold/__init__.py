@@ -4,7 +4,7 @@ Given a finite group Gamma < SU(3) (i.e. N D3-branes probing the Calabi-Yau
 singularity C^3/Gamma), this package carries out the Douglas-Moore /
 Lawrence-Nekrasov-Vafa / Kachru-Silverstein construction:
 
-    Step 1  groups   : realise Gamma as an explicit 3x3 matrix group in SU(3).
+    Step 1  groups   : realize Gamma as an explicit 3x3 matrix group in SU(3).
     Step 2  quiver   : build the McKay quiver (nodes = irreps, arrows from Q).
     Step 3  conformal: count Leigh-Strassler / GKSTW exactly marginal couplings
                        and return dim_C of the conformal manifold.
